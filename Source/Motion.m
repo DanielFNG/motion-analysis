@@ -3,6 +3,7 @@ classdef Motion < handle
 
     properties (SetAccess = private)
         Trial
+        TimeRange = 'Not yet calculated.'
     end
     
     % Model-specific properties; should be modified if alternative models
@@ -19,6 +20,16 @@ classdef Motion < handle
             if nargin > 0
                 obj.Trial = trial;
             end
+        end
+        
+        function updateTimeRange(obj, analysis)
+            
+            obj.require(analysis);
+            
+            data = obj.Trial.data.(analysis);
+            fields = fieldnames(data);
+            obj.TimeRange = data.(fields{1}).getTimeRange();
+            
         end
         
         function require(obj, analyses)

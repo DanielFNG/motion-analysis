@@ -4,7 +4,8 @@ classdef GaitCycle < Motion
     properties (GetAccess = private, SetAccess = private)
         GRFRightFoot = 'ground_force1_' 
         GRFLeftFoot = 'ground_force2_'
-        ToeMarker = '_MTP1_'
+        MTP1Marker = '_MTP1_'
+        MTP5Marker = '_MTP5_'
         HeelMarker = '_Heel_'
         AnkleMarker = '_Ankle_Lat_'
         Sideways = 'Z'
@@ -155,7 +156,8 @@ classdef GaitCycle < Motion
             end
         end
         
-        function [foot, side] = identifyLeadingFootGRF(obj)
+        function [foot, side, other_foot, other_side] = ...
+                identifyLeadingFootGRF(obj)
         
             % Isolate vertical force data for each foot.
             vert = 'vy';
@@ -169,10 +171,14 @@ classdef GaitCycle < Motion
             % Check which peaks sooner. 
             if right_zeros(1) > left_zeros(1)
                 foot = obj.GRFRightFoot;
+                other_foot = obj.GRFLeftFoot;
                 side = 'R';
+                other_side = 'L';
             else
                 foot = obj.GRFLeftFoot;
+                other_foot = obj.GRFRightFoot;
                 side = 'L';
+                other_side = 'R';
             end
         end
         
@@ -188,6 +194,122 @@ classdef GaitCycle < Motion
             
         end
         
+        function result = computeBoS(obj, cutoff)
+            
+            % Identify the leading foot and off foot.
+            [lead, lead_side, off, off_side] = obj.identifyLeadingFootGRF();
+            
+            % Identify the support phase times.
+            [ds1, ss1, ds2, ss2, fin] = ...
+                obj.identifySupportPhases(cutoff, lead, off);
+            
+            % Get the timestep associated with marker data.
+            markers = obj.Trial.data.IK.InputMarkers;
+            timestep = 1/markers.Frequency;
+            
+            % Take the appropriate slices.
+            first_ds = markers.slice(ds1, ss1 - timestep);
+            first_ss = markers.slice(ss1, ds2 - timestep);
+            second_ds = markers.slice(ds2, ss2 - timestep);
+            second_ss = markers.slice(ss2, fin);
+            
+            % Compute the line segments.
+            first_ds_lines = obj.computeBoSDoubleSupport(first_ds, lead_side);
+            second_ds_lines = obj.computeBoSDoubleSupport(second_ds, off_side);
+            first_ss_lines = obj.computeBoSSingleSupport(first_ss, lead_side);
+            second_ss_lines = obj.computeBoSSingleSupport(second_ss, off_side);
+            
+            % Concatenate the cell arrays in the right order.
+            result = [first_ds_lines, first_ss_lines, ...
+                second_ds_lines, second_ss_lines];
+            
+        end
+        
+        function [ds1, ss1, ds2, ss2, fin] = ...
+                identifySupportPhases(obj, cutoff, foot, off_foot)
+            
+            % Identify the stance phases for each.
+            leading_stance = obj.isolateStancePhase(foot, cutoff);
+            off_stance = obj.isolateStancePhase(off_foot, cutoff);
+            
+            % Find the double support sections as the intersection of the 
+            % stance phases.
+            double_support = intersect(leading_stance, off_stance);
+            
+            % Split in to first and second double support phase.
+            diff_ds = diff(double_support);
+            if sum(diff_ds ~= 1) ~= 1
+                error('Error in double support split.');
+            else
+                index = find(diff_ds ~= 1);
+                pre_split = double_support(index);
+                post_split = double_support(index+1);
+            end
+            ds1 = 1:pre_split;
+            ds2 = post_split:double_support(end);
+            
+            % Find the single support phases using set difference. 
+            ss1 = setdiff(leading_stance, ds1);
+            ss2 = setdiff(off_stance, ds2);
+            
+            % Get the timesteps.
+            time = obj.Trial.data.GRF.Force.getColumn('time');
+            ds1 = time(1);
+            ss1 = time(ss1(1));
+            ds2 = time(ds2(1));
+            ss2 = time(ss2(1));
+            fin = time(end);
+        end
+        
+        function [m, c, x_s, x_e] = computeBoSDoubleSupport(...
+                obj, markers, side, other_side)
+        % Computes boundary of support for data in single support.
+        %
+        % Returns arrays of m, c, x_s, x_e, where y_s = m(1)*x_s + c(1).
+        % The size of each array is 3 by t, where t is the number of
+        % timesteps and there are 3 lines composing the BoS for single support. 
+   
+        
+            % Get required marker trajectories.
+            lead_big_toe = [side obj.MTP1Marker];
+            lead_small_toe = [side obj.MTP5Marker];
+            lead_heel = [side obj.HeelMarker];
+            off_ankle = [other_side obj.AnkleMarker];
+            off_heel = [otherside obj.HeelMarker];
+            
+            switch side
+                case 'R'
+                    labels = {lead_big_toe, lead_small_toe, lead_heel, ...
+                        off_heel, off_ankle};
+                case 'L'
+                    labels = {lead_big_toe, off_ankle, off_heel, lead_heel, ...
+                        lead_small_toe};
+            end
+            
+            % Compute line segment info. 
+            [m, c, x_s, x_e] = obj.computeCyclicLineSegments(markers, labels);
+            
+        end
+        
+        function [m, c, x_s, x_e] = computeBoSSingleSupport(obj, markers, side)
+        % Computes boundary of support for data in single support.
+        %
+        % Returns arrays of m, c, x_s, x_e, where y_s = m(1)*x_s + c(1).
+        % The size of each array is 5 by t, where t is the number of
+        % timesteps and there are 5 lines composing the BoS for single
+        % support.
+        
+            % Get required marker trajectories.
+            big_toe_label = [side obj.MTP1Marker];
+            small_toe_label = [side obj.MTP5Marker];
+            heel_label = [side obj.HeelMarker];
+            labels = {big_toe_label, small_toe_label, heel_label};
+            
+            % Compute line segment info. 
+            [m, c, x_s, x_e] = obj.computeCyclicLineSegments(markers, labels);
+            
+        end
+        
     end
     
     methods (Static)
@@ -198,6 +320,48 @@ classdef GaitCycle < Motion
             dx = speed/n_frames;
             travel = (0:n_frames - 1)*dx;
             corrected_positions = positions + travel';
+            
+        end
+        
+        function [m, c, x_s, x_e] = computeCyclicLineSegments(markers, labels)
+            
+            n_markers = length(labels);
+            m = zeros(n_markers, markers.NRows);
+            c = m;
+            x_s = m;
+            y_s = m;
+            x_e = m;
+            y_e = m;
+            
+            for i=1:n_markers
+                next_marker = mod(i, n_markers) + 1;
+                [x_s(i,:), y_s(i,:), x_e(i,:), y_e(i,:)] = ...
+                    getBoundaryPoints(markers, labels{i}, labels{next_marker});
+                m(i,:) = calculateLineGradient(x_s, y_s, x_e, y_e);
+                c(i,:) = calculateLineIntercept(m(i,:), x_s, y_s);
+            end
+            
+        end
+        
+        function [x_s, y_s, x_e, y_e] = ...
+                getBoundaryPoints(markers, start_label, end_label)
+            
+            x_s = markers.getColumn([start_label 'Z']);
+            x_e = markers.getColumn([end_label 'Z']);
+            y_s = markers.getColumn([start_label 'X']);
+            y_e = markers.getColumn([end_label 'Z']);
+            
+        end
+        
+        function gradient = calculateLineGradient(x_s, y_s, x_e, y_e)
+           
+            gradient = (y_e - y_s)./(x_e - x_s);
+            
+        end
+        
+        function intercept = calculateLineIntercept(m, x, y)
+           
+            intercept = y - m.*x;
             
         end
     

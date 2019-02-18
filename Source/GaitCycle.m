@@ -82,6 +82,50 @@ classdef GaitCycle < Motion
             end
         end
         
+        function result = calculateMoSNew(...
+                obj, cutoff, speed, leg_length, direction)
+            
+            % Analysis requirements.
+            obj.require({'GRF', 'IK', 'BK'});
+            
+            % Directional behaviour.
+            if nargin < 5
+                directions = {'X', 'Z'};
+            else
+                directions = {upper(direction)};
+            end
+            
+            for i=1:length(directions)
+                
+                % Acquire CoM data, & get it to same frequency as marker data.
+                com_data = ...
+                    copy(obj.Trial.data.BK.Positions.getColumn(com_label));
+                com_data.spline(obj.Trial.data.IK.InputMarkers.Frequency);
+                com_label = [obj.CoM directions{i}];
+                com_pos = com_data.getColumn(com_label);
+                com_vel = com_data.getColumn(com_label);
+                
+                % Time of gait cycle.
+                time = obj.Trial.data.BK.Positions.getTotalTime();
+                
+                % Compute the BoS map.
+                bos_map = obj.computeBoS(cutoff, speed);
+                
+                % If necessary account for speed in the CoM.
+                if strcmp(directions{i}, 'x')
+                    com_pos = GaitCycle.accountForTreadmill(com_pos, time, speed);
+                    com_vel = com_vel + speed;
+                end
+                
+                % Compute extrapolated centre of mass.
+                xcom = calculateXCoM(com_pos, com_vel, leg_length);
+                
+                % Compute umax.
+                u_max = findClosestPerpPointOnBoS(bos_map, xcom);
+            end
+            
+        end
+        
         function result = calculateMoS(...
                 obj, stance_cutoff, speed, leg_length, direction)
             
@@ -139,33 +183,36 @@ classdef GaitCycle < Motion
             end
         end
         
-        function visualiseBoS(obj, cutoff, t)
+        function visualiseBoS(obj, cutoff, speed, t)
             
             markers = obj.Trial.data.IK.InputMarkers;
-            lines = obj.computeBoS(cutoff);
-            n_lines = size(lines.x, 1);
-            n_points = size(lines.x, 3);
+            line_map = obj.computeBoS(cutoff, speed);
             n_timesteps = markers.NFrames;
             
-            if nargin == 3
+            if nargin == 4
                 frame = markers.getFrame(t);
                 figure;
-                xlim([-600 600]);
+                xlim([-300 600]);
                 ylim([-600 600]);
                 hold on;
+                lines = line_map(frame);
+                n_lines = length(lines);
                 for i=1:n_lines
-                    plot(reshape(lines.z(i, frame, :), [n_points, 1]), reshape(lines.x(i, frame, :), [n_points, 1]));
+                    plot(lines{i}.z(:), lines{i}.x(:), 'color', 'k');
                 end
             else
                 h = animatedline;
-                axis([-600, 600, -600, 600]);
+                hold on;
+                axis([-1, 1, -1, 4]);
                 for frame=1:n_timesteps
+                    lines = line_map(frame);
+                    n_lines = length(lines);
                     for i=1:n_lines
-                        addpoints(h, reshape(lines.z(i, frame, :), [n_points, 1]), reshape(lines.x(i, frame, :), [n_points, 1]));
+                        addpoints(h, lines{i}.z(:), lines{i}.x(:));
                     end
+                    drawnow;
                     pause(0.05);
                     clearpoints(h);
-                    drawnow;
                 end
             end
             
@@ -243,7 +290,12 @@ classdef GaitCycle < Motion
             
         end
         
-        function lines = computeBoS(obj, cutoff)
+        function lines = computeBoS(obj, cutoff, speed)
+        % Compute & return the BoS trajectory.
+        %
+        % Returns a map which takes a frame and returns a structure of
+        % length L, each of which corresponds to a line (with x & z
+        % points). These lines make up the BoS at this frame. 
             
             % Identify the leading foot and off foot.
             [lead, lead_side, off, off_side] = obj.identifyLeadingFootGRF();
@@ -260,7 +312,20 @@ classdef GaitCycle < Motion
             phase = cell(n_phases, 1);
             
             % Get the timestep associated with marker data.
-            markers = obj.Trial.data.IK.InputMarkers;
+            markers = copy(obj.Trial.data.IK.InputMarkers);
+            
+            % Convert to m.
+            markers.scaleColumns(0.001);  % Conversion to m.
+            
+            % Account for speed.
+            state_labels = markers.Labels(3:end);
+            time = markers.getTotalTime();
+            for i=1:3:length(state_labels)-2
+                input = markers.getColumn(state_labels{i});
+                adjusted_input = ...
+                    GaitCycle.accountForTreadmill(input, time, speed);
+                markers.setColumn(state_labels{i}, adjusted_input);
+            end
             
             % Take the appropriate slices.
             for i=1:n_phases
@@ -270,35 +335,42 @@ classdef GaitCycle < Motion
             % Compute the line segments.
             switch n_phases
                 case 4
-                    first_ds_lines = obj.computeBoSDoubleSupport(phase{1}, lead_side, off_side);
-                    first_ss_lines = obj.computeBoSSingleSupport(phase{2}, lead_side);
-                    second_ds_lines = obj.computeBoSDoubleSupport(phase{3}, off_side, lead_side);
-                    second_ss_lines = obj.computeBoSSingleSupport(phase{4}, off_side);
+                    line{1} = ...
+                        obj.computeBoSDoubleSupport(phase{1}, lead_side, off_side);
+                    line{2} = obj.computeBoSSingleSupport(phase{2}, lead_side);
+                    line{3} = ...
+                        obj.computeBoSDoubleSupport(phase{3}, off_side, lead_side);
+                    line{4} = obj.computeBoSSingleSupport(phase{4}, off_side);
                 case 3
-                    first_ds_lines.x = [];
-                    first_ds_lines.z = [];
-                    first_ss_lines = obj.computeBoSSingleSupport(phase{1}, lead_side);
-                    second_ds_lines = obj.computeBoSDoubleSupport(phase{2}, off_side, lead_side);
-                    second_ss_lines = obj.computeBoSSingleSupport(phase{3}, off_side);
+                    line{1} = obj.computeBoSSingleSupport(phase{1}, lead_side);
+                    line{2} = ...
+                        obj.computeBoSDoubleSupport(phase{2}, off_side, lead_side);
+                    line{3} = obj.computeBoSSingleSupport(phase{3}, off_side);
             end
             
-            % Concatenate the cell arrays in the right order.
+            % Create a line map.
+            key_set = [];
+            value_set = {};
+            offset = 0;
             
-            fss = size(first_ss_lines.x, 2);
-            sss = size(second_ss_lines.x, 2);
-            m = size(first_ss_lines.x, 3);
-            
-            fill_fss_x = first_ss_lines.x(1:2, 1:fss, 1:m);
-            fill_fss_z = first_ss_lines.z(1:2, 1:fss, 1:m);
-            fill_sss_x = second_ss_lines.x(1:2, 1:sss, 1:m);
-            fill_sss_z = second_ss_lines.z(1:2, 1:sss, 1:m);
-            
-            lines.x = [first_ds_lines.x, ...
-                [first_ss_lines.x; fill_fss_x], ...
-                second_ds_lines.x, [second_ss_lines.x; fill_sss_x]];
-            lines.z = [first_ds_lines.z, ...
-                [first_ss_lines.z; fill_fss_z], ...
-                second_ds_lines.z, [second_ss_lines.z; fill_sss_z]];
+            for i=1:length(line)
+                n_frames = size(line{i}.x, 3);
+                n_lines = size(line{i}.x, 1);
+                n_points = size(line{i}.x, 2);
+                
+                for j=1:n_frames
+                    key_set = [key_set j + offset];
+                    lines = {};
+                    for k=1:n_lines
+                        lines{k}.x = reshape(line{i}.x(k,:,j), n_points, 1);
+                        lines{k}.z = reshape(line{i}.z(k,:,j), n_points, 1);
+                    end
+                    value_set{j + offset} = lines;
+                end
+                offset = offset + n_frames;
+            end
+                    
+            lines = containers.Map(key_set, value_set);
             
         end
         
@@ -399,19 +471,21 @@ classdef GaitCycle < Motion
     
     methods (Static)
         
-        function corrected_positions = accountForTreadmill(positions, speed)
+        function corrected_positions = accountForTreadmill(...
+                positions, time, speed)
             
             n_frames = length(positions);
-            dx = speed/n_frames;
-            travel = (0:n_frames - 1)*dx;
-            corrected_positions = positions + travel';
+            travel = speed*time;
+            tx = linspace(0, travel, n_frames);
+            corrected_positions = reshape(positions, n_frames, 1) + ...
+                reshape(tx, n_frames, 1);
             
         end
         
         function lines = computeCyclicLineSegments(markers, labels)
             
             n_markers = length(labels);
-            lines.x = zeros(n_markers, markers.NFrames, markers.Frequency);
+            lines.x = zeros(n_markers, markers.Frequency, markers.NFrames);
             lines.z = lines.x;
             
             for i=1:n_markers
@@ -419,9 +493,9 @@ classdef GaitCycle < Motion
                 [x_s, z_s, x_e, z_e] = GaitCycle.getBoundaryPoints(...
                     markers, labels{i}, labels{next_marker});
                 for j=1:markers.NFrames
-                    lines.x(i, j, :) = ...
+                    lines.x(i, :, j) = ...
                         x_s(j):(x_e(j)-x_s(j))/(markers.Frequency-1):x_e(j);
-                    lines.z(i, j, :) = ...
+                    lines.z(i, :, j) = ...
                         z_s(j):(z_e(j)-z_s(j))/(markers.Frequency-1):z_e(j);
                 end
             end

@@ -112,8 +112,8 @@ classdef GaitCycle < Motion
             
         end
         
-        function result = calculateMoSNew(...
-                obj, cutoff, speed, leg_length, direction)
+        function result = calculateMoS(...
+                obj, cutoff, speed, leg_length, direction, mode)
             
             % Analysis requirements.
             obj.require({'GRF', 'IK', 'BK'});
@@ -129,73 +129,89 @@ classdef GaitCycle < Motion
             bos_map = obj.computeBoS(cutoff, speed);
                 
             % Compute umax.
-            [x, z] = calculateUMax(bos_map, xcom);
+            [u_max, multiplier] = calculateUMax(bos_map, xcom.x, xcom.z);
             
             % Compute MoS.
-            result.x = abs(x.x) - abs(xcom.x);
-            result.z = abs(z.z) - abs(xcom.z);
+            result.x = multiplier.x.*abs(u_max.x.x - xcom.x);
+            result.z = multiplier.z.*abs(u_max.z.z - xcom.z);
             
             % If requested provide MoS in one direction only.
-            if nargin == 5
-                result = u_max.(direction);
+            if nargin >= 5
+                switch mode
+                    case 'full'
+                        result = result.(direction);
+                    case 'mean'
+                        result = mean(result.(direction));
+                    case 'min'
+                        result = min(result.(direction));
+                end
             end
             
         end
         
-        function result = calculateMoS(...
-                obj, stance_cutoff, speed, leg_length, direction)
+        function result = calculateMoSCoM(obj, speed, direction, mode)
             
             % Analysis requirements.
             obj.require({'GRF', 'IK', 'BK'});
             
-            % Get the start and end time of stance.
-            [foot, side] = obj.identifyLeadingFootGRF();
-            timesteps = obj.Trial.data.GRF.Forces.getColumn('time');
-            stance_indices = obj.isolateStancePhase(foot, stance_cutoff);
-            start_time = timesteps(stance_indices(1));
-            end_time = timesteps(stance_indices(end));
+            % Compute CoM position & velocity.
+            com_pos = obj.calculateCoMPositionAndVelocity(speed);
             
-            % MoS calculations.
-            if nargin < 5
-                directions = {'x', 'z'};
-            else
-                directions = {direction};
+            % Compute the BoS map.
+            bos_map = obj.computeProjectedBoS(speed);
+            
+            % Compute umax.
+            [u_max, multiplier] = calculateUMax(bos_map, com_pos.x, com_pos.z);
+            
+            % Compute MoS.
+            result.x = multiplier.x.*abs(u_max.x.x - com_pos.x);
+            result.z = multiplier.z.*abs(u_max.z.z - com_pos.z);
+            
+            % If requested provide MoS in one direction only.
+            if nargin >= 3
+                switch mode
+                    case 'full'
+                        result = result.(direction);
+                    case 'mean'
+                        result = mean(result.(direction));
+                    case 'min'
+                        result = min(result.(direction));
+                end
             end
+        end
+        
+        function result = calculateMoSAX(obj, speed, leg_length, direction, mode)
             
-            for i=1:length(directions)
+            % Analysis requirements.
+            obj.require({'GRF', 'IK', 'BK'});
+            
+            % Compute CoM position & velocity.
+            [com_pos, com_vel] = obj.calculateCoMPositionAndVelocity(speed);
                 
-                pos = obj.Trial.data.BK.Positions.slice(start_time, end_time);
-                vel = obj.Trial.data.BK.Velocities.slice(start_time, end_time);
-                com_label = [obj.CoM directions{i}];
-                com_pos = pos.getColumn(com_label);
-                com_vel = vel.getColumn(com_label);
-                
-                switch directions{i}
-                    case 'x'
-                        marker = obj.HeelMarker;
-                        test = obj.AnkleMarker;
-                    case 'z'
-                        marker = obj.AnkleMarker;
+            % Compute extrapolated centre of mass.
+            xcom.x = calculateXCoM(com_pos.x, com_vel.x, leg_length);
+            xcom.z = calculateXCoM(com_pos.z, com_vel.z, leg_length);
+            
+            % Compute the BoS map.
+            bos_map = obj.computeAXProjectedBoS(speed, leg_length);
+            
+            % Compute umax.
+            [u_max, multiplier] = calculateUMax(bos_map, xcom.x, xcom.z);
+            
+            % Compute MoSAX.
+            result.x = multiplier.x.*abs(u_max.x.x - xcom.x(1:end-1));  % IK bug
+            result.z = multiplier.z.*abs(u_max.z.z - xcom.z(1:end-1));
+            
+            % If requested provide MoS in one direction only.
+            if nargin >= 4
+                switch mode
+                    case 'full'
+                        result = result.(direction);
+                    case 'mean'
+                        result = mean(result.(direction));
+                    case 'min'
+                        result = min(result.(direction));
                 end
-                
-                markers = ...
-                    obj.Trial.data.IK.InputMarkers.slice(start_time, end_time);
-                test_label = [side test directions{i}];
-                bos_label = [side marker directions{i}];
-                bos = markers.getColumn(bos_label)/1000;  % Convert to m
-                test = markers.getColumn(test_label)/1000;
-                
-                switch directions{i}
-                    case 'x'
-                        com_pos = GaitCycle.accountForTreadmill(com_pos, speed);
-                        com_vel = com_vel + speed;
-                        bos = GaitCycle.accountForTreadmill(bos, speed);
-                        test = GaitCycle.accountForTreadmill(test, speed);
-                end
-                
-                xcom = com_pos + com_vel*sqrt(leg_length/obj.Gravity);
-                mos = min(bos - xcom);
-                result.(directions{i}) = max(0, mos); 
             end
         end
         
@@ -203,14 +219,19 @@ classdef GaitCycle < Motion
             
             markers = obj.Trial.data.IK.InputMarkers;
             line_map = obj.computeBoS(cutoff, speed);
-            %projected_line_map = obj.computeProjectedBoS(speed);
+            %[projected_line_map, ~] = obj.computeProjectedBoS(speed);
             %xprojected_line_map = obj.computeXProjectedBoS(speed, leg_length);
             %axprojected_line_map = obj.computeAXProjectedBoS(speed, leg_length);
             n_timesteps = markers.NFrames;
+             
             
             [p, v] = calculateCoMPositionAndVelocity(obj, speed);
             xcom.x = calculateXCoM(p.x, v.x, leg_length);
             xcom.z = calculateXCoM(p.z, v.z, leg_length);
+            
+            %u_max = calculateUMax(projected_line_map, p.x, p.z);
+            %u_max = calculateUMax(projected_line_map, xcom.x, xcom.z);
+            u_max = calculateUMax(line_map, xcom.x, xcom.z);
             
             %xlim = [0.2, 1.8];
             %zlim = [-0.3, 0.4];
@@ -262,6 +283,17 @@ classdef GaitCycle < Motion
 %                     for i=1:n_axprojected_lines
 %                         addpoints(axproj, axprojected_lines{i}.z(:), axprojected_lines{i}.x(:));
 %                     end
+                    mos_x_z = linspace(xcom.z(frame), u_max.x.z(frame), 100);
+                    mos_x_x = linspace(xcom.x(frame), u_max.x.x(frame), 100);
+                    mos_z_z = linspace(xcom.z(frame), u_max.z.z(frame), 100);
+                    mos_z_x = linspace(xcom.x(frame), u_max.z.x(frame), 100);
+%                     mos_x_z = linspace(p.z(frame), u_max.x.z(frame), 100);
+%                     mos_x_x = linspace(p.x(frame), u_max.x.x(frame), 100);
+%                     mos_z_z = linspace(p.z(frame), u_max.z.z(frame), 100);
+%                     mos_z_x = linspace(p.x(frame), u_max.z.x(frame), 100);
+                    plot(mos_x_z, mos_x_x, 'LineWidth', 1.5, 'color', 'b');
+                    plot(mos_z_z, mos_z_x, 'LineWidth', 1.5, 'color', 'b');
+                    %plot(u_max.z.z(frame), u_max.z.x(frame), 'gx', 'LineWidth', 1.5, 'MarkerSize', 12);
                     plot(p.z(frame), p.x(frame), 'bx', 'LineWidth', 1.5, 'MarkerSize', 12);
                     plot(xcom.z(frame), xcom.x(frame), 'rx', 'LineWidth', 1.5, 'MarkerSize', 12);
                     ax = gca;
@@ -300,7 +332,7 @@ classdef GaitCycle < Motion
         end
     end
     
-    methods (Access = private)
+    methods %(Access = private)
         
         function [side, other_side] = identifyLeadingFootIK(obj)
             
@@ -371,7 +403,7 @@ classdef GaitCycle < Motion
             
         end
         
-        function lines = computeAXProjectedBoS(obj, speed, leg_length)
+        function [lines, bounds] = computeAXProjectedBoS(obj, speed, leg_length)
             
             % Get the timestep associated with marker data.
             markers = copy(obj.Trial.data.IK.InputMarkers);
@@ -483,23 +515,13 @@ classdef GaitCycle < Motion
             % Create a line map.
             key_set = [];
             value_set = {};
+            bound_set = {};
             offset = 0;
             
             for i=1:length(line)
                 n_frames = size(line{i}.x, 3);
                 n_lines = size(line{i}.x, 1);
                 n_points = size(line{i}.x, 2);
-                
-%                 for k=1:n_lines
-%                     for j=1:n_points
-%                         x_vals = reshape(line{i}.x(k,j,:), 1, n_frames);
-%                         z_vals = reshape(line{i}.z(k,j,:), 1, n_frames);
-%                         x_vel = gradient(x_vals, times{i});
-%                         z_vel = gradient(z_vals, times{i});
-%                         line{i}.x(k,j,:) = calculateXCoM(x_vals, x_vel, leg_length);
-%                         line{i}.z(k,j,:) = calculateXCoM(z_vals, z_vel, leg_length);
-%                     end
-%                 end
                 
                 for j=1:n_frames
                     key_set = [key_set j + offset];
@@ -508,16 +530,23 @@ classdef GaitCycle < Motion
                         lines{k}.x = reshape(line{i}.x(k,:,j), n_points, 1);
                         lines{k}.z = reshape(line{i}.z(k,:,j), n_points, 1);
                     end
+                    bounds = {};
+                    for k=1:4
+                        bounds{k}.x = reshape(line{i}.bounds.x(k,:,j), n_points, 1);
+                        bounds{k}.z = reshape(line{i}.bounds.z(k,:,j), n_points, 1);
+                    end
                     value_set{j + offset} = lines;
+                    bound_set{j + offset} = bounds;
                 end
                 offset = offset + n_frames;
             end
                     
             lines = containers.Map(key_set, value_set);
+            bounds = containers.Map(key_set, bound_set);
             
         end
         
-        function lines = computeXProjectedBoS(obj, speed, leg_length)
+        function [lines, bounds] = computeXProjectedBoS(obj, speed, leg_length)
             
             % Get the timestep associated with marker data.
             markers = copy(obj.Trial.data.IK.InputMarkers);
@@ -591,23 +620,13 @@ classdef GaitCycle < Motion
             % Create a line map.
             key_set = [];
             value_set = {};
+            bound_set = {};
             offset = 0;
             
             for i=1:length(line)
                 n_frames = size(line{i}.x, 3);
                 n_lines = size(line{i}.x, 1);
                 n_points = size(line{i}.x, 2);
-                
-%                 for k=1:n_lines
-%                     for j=1:n_points
-%                         x_vals = reshape(line{i}.x(k,j,:), 1, n_frames);
-%                         z_vals = reshape(line{i}.z(k,j,:), 1, n_frames);
-%                         x_vel = gradient(x_vals, times{i});
-%                         z_vel = gradient(z_vals, times{i});
-%                         line{i}.x(k,j,:) = calculateXCoM(x_vals, x_vel, leg_length);
-%                         line{i}.z(k,j,:) = calculateXCoM(z_vals, z_vel, leg_length);
-%                     end
-%                 end
                 
                 for j=1:n_frames
                     key_set = [key_set j + offset];
@@ -616,16 +635,23 @@ classdef GaitCycle < Motion
                         lines{k}.x = reshape(line{i}.x(k,:,j), n_points, 1);
                         lines{k}.z = reshape(line{i}.z(k,:,j), n_points, 1);
                     end
+                    bounds = {};
+                    for k=1:4
+                        bounds{k}.x = reshape(line{i}.bounds.x(k,:,j), n_points, 1);
+                        bounds{k}.z = reshape(line{i}.bounds.z(k,:,j), n_points, 1);
+                    end
                     value_set{j + offset} = lines;
+                    bound_set{j + offset} = bounds;
                 end
                 offset = offset + n_frames;
             end
                     
             lines = containers.Map(key_set, value_set);
+            bounds = containers.Map(key_set, bound_set);
             
         end
         
-        function lines = computeProjectedBoS(obj, speed)
+        function [lines, bounds] = computeProjectedBoS(obj, speed)
             
             % Get the timestep associated with marker data.
             markers = copy(obj.Trial.data.IK.InputMarkers);
@@ -675,6 +701,7 @@ classdef GaitCycle < Motion
             % Create a line map.
             key_set = [];
             value_set = {};
+            bound_set = {};
             offset = 0;
             
             for i=1:length(line)
@@ -689,16 +716,23 @@ classdef GaitCycle < Motion
                         lines{k}.x = reshape(line{i}.x(k,:,j), n_points, 1);
                         lines{k}.z = reshape(line{i}.z(k,:,j), n_points, 1);
                     end
+                    bounds = {};
+                    for k=1:4
+                        bounds{k}.x = reshape(line{i}.bounds.x(k,:,j), n_points, 1);
+                        bounds{k}.z = reshape(line{i}.bounds.z(k,:,j), n_points, 1);
+                    end
                     value_set{j + offset} = lines;
+                    bound_set{j + offset} = bounds;
                 end
                 offset = offset + n_frames;
             end
                     
             lines = containers.Map(key_set, value_set);
+            bounds = containers.Map(key_set, bound_set);
             
         end
         
-        function lines = computeBoS(obj, cutoff, speed)
+        function [lines, bounds] = computeBoS(obj, cutoff, speed)
         % Compute & return the BoS trajectory.
         %
         % Returns a map which takes a frame and returns a structure of
@@ -759,6 +793,7 @@ classdef GaitCycle < Motion
             % Create a line map.
             key_set = [];
             value_set = {};
+            bound_set = {};
             offset = 0;
             
             for i=1:length(line)
@@ -773,12 +808,19 @@ classdef GaitCycle < Motion
                         lines{k}.x = reshape(line{i}.x(k,:,j), n_points, 1);
                         lines{k}.z = reshape(line{i}.z(k,:,j), n_points, 1);
                     end
+                    bounds = {};
+                    for k=1:4
+                        bounds{k}.x = reshape(line{i}.bounds.x(k,:,j), n_points, 1);
+                        bounds{k}.z = reshape(line{i}.bounds.z(k,:,j), n_points, 1);
+                    end
                     value_set{j + offset} = lines;
+                    bound_set{j + offset} = bounds;
                 end
                 offset = offset + n_frames;
             end
                     
             lines = containers.Map(key_set, value_set);
+            bounds = containers.Map(key_set, bound_set);
             
         end
         
@@ -870,9 +912,26 @@ classdef GaitCycle < Motion
             lead_bottom_right.x = lead_heel_x;
             lead_bottom_right.z = lead_big_toe_z;
             
+            corner_top_right.x = lead_big_toe_x;
+            corner_top_right.z = off_small_toe_z;
+            
+            corner_bottom_right.x = off_heel_x;
+            corner_bottom_right.z = off_small_toe_z;
+            
+            corner_bottom_left.x = off_heel_x;
+            corner_bottom_left.z = lead_small_toe_z;
+            
+            off_corner_bottom_right.x = lead_heel_x;
+            off_corner_bottom_right.z = off_small_toe_z;
+            
+            off_corner_bottom_left.x = lead_heel_x;
+            off_corner_bottom_left.z = lead_small_toe_z;
+            
             n_lines = 6;
             lines.x = zeros(n_lines, markers.Frequency, markers.NFrames);
             lines.z = lines.x;
+            lines.bounds.x = zeros(4, markers.Frequency, markers.NFrames);
+            lines.bounds.z = lines.bounds.x;
             directions = {'x', 'z'};
             
             for d=1:length(directions)
@@ -890,6 +949,16 @@ classdef GaitCycle < Motion
                             lead_bottom.(directions{d})(i), markers.Frequency);
                         lines.(directions{d})(6, :, i) = linspace(lead_bottom.(directions{d})(i), ...
                             lead_top_left.(directions{d})(i), markers.Frequency);
+                        
+                        lines.bounds.(directions{d})(1, :, i) = linspace(lead_top_left.(directions{d})(i), ...
+                            corner_top_right.(directions{d})(i), markers.Frequency);
+                        lines.bounds.(directions{d})(2, :, i) = linspace(corner_top_right.(directions{d})(i), ...
+                            corner_bottom_right.(directions{d})(i), markers.Frequency);
+                        lines.bounds.(directions{d})(3, :, i) = linspace(corner_bottom_right.(directions{d})(i), ...
+                            corner_bottom_left.(directions{d})(i), markers.Frequency);
+                        lines.bounds.(directions{d})(4, :, i) = linspace(corner_bottom_left.(directions{d})(i), ...
+                            lead_top_left.(directions{d})(i), markers.Frequency);
+                        
                     elseif lead_heel_x(i) < off_heel_x(i)
                         lines.(directions{d})(1, :, i) = linspace(lead_top_left.(directions{d})(i), ...
                             lead_top_right.(directions{d})(i), markers.Frequency);
@@ -903,7 +972,19 @@ classdef GaitCycle < Motion
                             lead_bottom.(directions{d})(i), markers.Frequency);
                         lines.(directions{d})(6, :, i) = linspace(lead_bottom.(directions{d})(i), ...
                             lead_top_left.(directions{d})(i), markers.Frequency);
+                        
+                        lines.bounds.(directions{d})(1, :, i) = linspace(lead_top_left.(directions{d})(i), ...
+                            corner_top_right.(directions{d})(i), markers.Frequency);
+                        lines.bounds.(directions{d})(2, :, i) = linspace(corner_top_right.(directions{d})(i), ...
+                            off_corner_bottom_right.(directions{d})(i), markers.Frequency);
+                        lines.bounds.(directions{d})(3, :, i) = linspace(off_corner_bottom_right.(directions{d})(i), ...
+                            off_corner_bottom_left.(directions{d})(i), markers.Frequency);
+                        lines.bounds.(directions{d})(4, :, i) = linspace(off_corner_bottom_left.(directions{d})(i), ...
+                            lead_top_left.(directions{d})(i), markers.Frequency);
+                        
+                        
                     end
+                    
                 end
             end
             
@@ -938,6 +1019,8 @@ classdef GaitCycle < Motion
             n_lines = 4;
             lines.x = zeros(n_lines, markers.Frequency, markers.NFrames);
             lines.z = lines.x;
+            lines.bounds.x = zeros(4, markers.Frequency, markers.NFrames);
+            lines.bounds.z = lines.bounds.x;
             directions = {'x', 'z'};
             
             for d=1:length(directions)
@@ -949,6 +1032,15 @@ classdef GaitCycle < Motion
                     lines.(directions{d})(3, :, i) = linspace(bottom_right.(directions{d})(i),...
                         bottom_left.(directions{d})(i), markers.Frequency);
                     lines.(directions{d})(4, :, i) = linspace(bottom_left.(directions{d})(i), ...
+                        top_left.(directions{d})(i), markers.Frequency);
+                    
+                    lines.bounds.(directions{d})(1, :, i) = linspace(top_left.(directions{d})(i), ...
+                        top_right.(directions{d})(i), markers.Frequency);
+                    lines.bounds.(directions{d})(2, :, i) = linspace(top_right.(directions{d})(i), ...
+                        bottom_right.(directions{d})(i), markers.Frequency);
+                    lines.bounds.(directions{d})(3, :, i) = linspace(bottom_right.(directions{d})(i),...
+                        bottom_left.(directions{d})(i), markers.Frequency);
+                    lines.bounds.(directions{d})(4, :, i) = linspace(bottom_left.(directions{d})(i), ...
                         top_left.(directions{d})(i), markers.Frequency);
                 end
             end

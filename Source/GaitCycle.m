@@ -219,9 +219,9 @@ classdef GaitCycle < Motion
             
             markers = obj.Trial.data.IK.InputMarkers;
             line_map = obj.computeBoS(cutoff, speed);
-            %[projected_line_map, ~] = obj.computeProjectedBoS(speed);
+            [projected_line_map, ~] = obj.computeProjectedBoS(speed);
             %xprojected_line_map = obj.computeXProjectedBoS(speed, leg_length);
-            axprojected_line_map = obj.computeAXProjectedBoS(speed, leg_length);
+            %xprojected_line_map = obj.computeAXProjectedBoS(speed, leg_length);
             n_timesteps = markers.NFrames;
              
             
@@ -229,8 +229,8 @@ classdef GaitCycle < Motion
             xcom.x = calculateXCoM(p.x, v.x, leg_length);
             xcom.z = calculateXCoM(p.z, v.z, leg_length);
             
-            %u_max = calculateUMax(projected_line_map, p.x, p.z);
-            u_max = calculateUMax(axprojected_line_map, xcom.x, xcom.z);
+            u_max = calculateUMax(projected_line_map, p.x, p.z);
+            %u_max = calculateUMax(axprojected_line_map, xcom.x, xcom.z);
             %u_max = calculateUMax(line_map, xcom.x, xcom.z);
             
             %xlim = [0.2, 1.8];
@@ -256,41 +256,41 @@ classdef GaitCycle < Motion
                 title('Stability Metrics', 'FontSize', 20);
                 xlabel('z (m)', 'FontSize', 15);
                 ylabel('x (m)', 'FontSize', 15);
-                %proj = animatedline('LineWidth', 1.5, 'LineStyle', '--');
+                proj = animatedline('LineWidth', 1.5, 'LineStyle', '--');
                 %xproj = animatedline('LineWidth', 1.5, 'LineStyle', ':');
-                axproj = animatedline('LineWidth', 1.5, 'LineStyle', '-.');
+                %axproj = animatedline('LineWidth', 1.5, 'LineStyle', '-.');
                 hold on;
                 axis([zlim(1), zlim(2), xlim(1), xlim(2)]);
                 pbaspect([1 2 1]);
-                for frame=1:n_timesteps - 1  % adjustment for IKTool bug
+                for frame=1:n_timesteps - 2  % adjustment for IKTool bug
                     lines = line_map(frame);
-                    %projected_lines = projected_line_map(frame);
+                    projected_lines = projected_line_map(frame);
                     %xprojected_lines = xprojected_line_map(frame);
-                    axprojected_lines = axprojected_line_map(frame);
+                    %axprojected_lines = axprojected_line_map(frame);
                     n_lines = length(lines);
                     for i=1:n_lines
                         addpoints(h, lines{i}.z(:), lines{i}.x(:));
                     end
-                    %n_projected_lines = length(projected_lines);
+                    n_projected_lines = length(projected_lines);
                     %n_xprojected_lines = length(xprojected_lines);
-                    n_axprojected_lines = length(axprojected_lines);
-%                     for i=1:n_projected_lines
-%                         addpoints(proj, projected_lines{i}.z(:), projected_lines{i}.x(:));
-%                     end
+                    %n_axprojected_lines = length(axprojected_lines);
+                    for i=1:n_projected_lines
+                        addpoints(proj, projected_lines{i}.z(:), projected_lines{i}.x(:));
+                    end
 %                     for i=1:n_xprojected_lines
 %                         addpoints(xproj, xprojected_lines{i}.z(:), xprojected_lines{i}.x(:));
 %                     end
-                    for i=1:n_axprojected_lines
-                        addpoints(axproj, axprojected_lines{i}.z(:), axprojected_lines{i}.x(:));
-                    end
-                    mos_x_z = linspace(xcom.z(frame), u_max.x.z(frame), 100);
-                    mos_x_x = linspace(xcom.x(frame), u_max.x.x(frame), 100);
-                    mos_z_z = linspace(xcom.z(frame), u_max.z.z(frame), 100);
-                    mos_z_x = linspace(xcom.x(frame), u_max.z.x(frame), 100);
-%                     mos_x_z = linspace(p.z(frame), u_max.x.z(frame), 100);
-%                     mos_x_x = linspace(p.x(frame), u_max.x.x(frame), 100);
-%                     mos_z_z = linspace(p.z(frame), u_max.z.z(frame), 100);
-%                     mos_z_x = linspace(p.x(frame), u_max.z.x(frame), 100);
+%                     for i=1:n_axprojected_lines
+%                         addpoints(axproj, axprojected_lines{i}.z(:), axprojected_lines{i}.x(:));
+%                     end
+%                     mos_x_z = linspace(xcom.z(frame), u_max.x.z(frame), 100);
+%                     mos_x_x = linspace(xcom.x(frame), u_max.x.x(frame), 100);
+%                     mos_z_z = linspace(xcom.z(frame), u_max.z.z(frame), 100);
+%                     mos_z_x = linspace(xcom.x(frame), u_max.z.x(frame), 100);
+                    mos_x_z = linspace(p.z(frame), u_max.x.z(frame), 100);
+                    mos_x_x = linspace(p.x(frame), u_max.x.x(frame), 100);
+                    mos_z_z = linspace(p.z(frame), u_max.z.z(frame), 100);
+                    mos_z_x = linspace(p.x(frame), u_max.z.x(frame), 100);
                     
                     %plot(u_max.z.z(frame), u_max.z.x(frame), 'gx', 'LineWidth', 1.5, 'MarkerSize', 12);
                     plot(p.z(frame), p.x(frame), 'bx', 'LineWidth', 1.5, 'MarkerSize', 12);
@@ -299,7 +299,7 @@ classdef GaitCycle < Motion
                     plot(mos_z_z, mos_z_x, 'LineWidth', 1.5, 'color', 'm');
                     ax = gca;
                     ax.FontSize = 15;
-                    legend('BoS', 'AXBoS', 'CoM', 'XCoM', 'MoSAX-AP', 'MoSAX-ML', 'Location', 'SouthEast', 'FontSize', 15);
+                    legend('BoS', 'PBoS', 'CoM', 'XCoM', 'CoM-AP', 'CoM-ML', 'Location', 'SouthEast', 'FontSize', 15);
                     drawnow;
                     %pause(0.01);
                     
@@ -317,9 +317,9 @@ classdef GaitCycle < Motion
                     if frame ~= n_timesteps - 1
                         delete(findobj(gca, 'type', 'line'));
                         clearpoints(h);
-                        %clearpoints(proj);
+                        clearpoints(proj);
                         %clearpoints(xproj);
-                        clearpoints(axproj);
+                        %clearpoints(axproj);
                     else
                         for i=1:10
                             imwrite(imind,cm,'test2.gif','gif','DelayTime',0,'WriteMode','append');

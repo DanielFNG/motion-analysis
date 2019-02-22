@@ -24,14 +24,55 @@ classdef Motion < handle
         
     methods
         
-        function obj = Motion(trial, analyses)
+        function obj = Motion(trial, analyses, speed, direction)
             if nargin > 0
                 obj.Trial = trial;
                 obj.initialiseLoadStatus();
                 if nargin > 1
                     obj.load(analyses);
+                    if nargin > 3
+                        obj.accountForFixedSpeed(speed, direction);
+                    end
                 end
             end
+        end
+        
+        function accountForFixedSpeed(obj, speed, direction)
+            
+            % Cartesian position adjustment.
+            positions = {obj.Markers.Trajectories, obj.BK.Positions};
+            for i=1:length(positions)
+                time = positions{i}.getTotalTime();
+                for j=1:positions{i}.NCols
+                    if strcmpi(positions{i}.Labels{j}, direction)
+                        initial_values = obj.getColumn(j);
+                        adjusted_values = accountForMovingReferenceFrame(...
+                            initial_values, time, speed);
+                        obj.setColumn(j, adjusted_values);
+                    end
+                end
+            end
+            
+            % CoP adjustment.
+            forces = obj.GRF.Forces;
+            for j=1:forces.NCols
+                if strcmpi(forces.Labels{j}, ['p' direction])
+                    initial_values = obj.getColumn(j);
+                    adjusted_values = accountForMovingReferenceFrame(...
+                        initial_values, time, speed);
+                    obj.setColumn(j, adjusted_values);
+                end
+            end
+            
+            % BK velocity adjustment.
+            velocity = obj.BK.Velocities;
+            for j=1:velocity.NCols
+                if strcmpi(velocity.Labels{j}, direction)
+                    initial_values = obj.getColumn(j);
+                    obj.setColumn(j, initial_values + speed);
+                end
+            end
+            
         end
         
         function initialiseLoadStatus(obj)

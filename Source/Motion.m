@@ -30,7 +30,7 @@ classdef Motion < handle
                 obj.initialiseLoadStatus();
                 if nargin > 1
                     obj.load(analyses);
-                    if nargin > 3
+                    if nargin == 4
                         obj.accountForFixedSpeed(speed, direction);
                     end
                 end
@@ -44,11 +44,11 @@ classdef Motion < handle
             for i=1:length(positions)
                 time = positions{i}.getTotalTime();
                 for j=1:positions{i}.NCols
-                    if strcmpi(positions{i}.Labels{j}, direction)
-                        initial_values = obj.getColumn(j);
+                    if strcmpi(positions{i}.Labels{j}(end), direction)
+                        initial_values = positions{i}.getColumn(j);
                         adjusted_values = accountForMovingReferenceFrame(...
                             initial_values, time, speed);
-                        obj.setColumn(j, adjusted_values);
+                        positions{i}.setColumn(j, adjusted_values);
                     end
                 end
             end
@@ -56,20 +56,20 @@ classdef Motion < handle
             % CoP adjustment.
             forces = obj.GRF.Forces;
             for j=1:forces.NCols
-                if strcmpi(forces.Labels{j}, ['p' direction])
-                    initial_values = obj.getColumn(j);
+                if strcmpi(forces.Labels{j}(end-1:end), ['p' direction])
+                    initial_values = forces.getColumn(j);
                     adjusted_values = accountForMovingReferenceFrame(...
                         initial_values, time, speed);
-                    obj.setColumn(j, adjusted_values);
+                    forces.setColumn(j, adjusted_values);
                 end
             end
             
             % BK velocity adjustment.
             velocity = obj.BK.Velocities;
             for j=1:velocity.NCols
-                if strcmpi(velocity.Labels{j}, direction)
-                    initial_values = obj.getColumn(j);
-                    obj.setColumn(j, initial_values + speed);
+                if strcmpi(velocity.Labels{j}(end), direction)
+                    initial_values = velocity.getColumn(j);
+                    velocity.setColumn(j, initial_values + speed);
                 end
             end
             
@@ -124,6 +124,7 @@ classdef Motion < handle
                     case 'Markers'
                         obj.Markers.Trajectories = ...
                             Data(obj.Trial.input_coordinates);
+                        obj.Markers.Trajectories.convertUnits('m');
                     case 'IK'
                         obj.IK.Kinematics = ...
                             Data([folder filesep 'ik.mot']);

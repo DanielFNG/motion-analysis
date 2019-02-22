@@ -82,7 +82,7 @@ classdef GaitCycle < Motion
             end
         end
         
-        function [p, v] = calculateCoMPositionAndVelocity(obj, speed)
+        function [p, v] = calculateCoMPositionAndVelocity(obj)
             
             % Directional behaviour.
             directions = {'x', 'z'};
@@ -90,18 +90,11 @@ classdef GaitCycle < Motion
                 
                 % Acquire CoM data, & get it to same frequency as marker data.
                 com_label = [obj.CoM directions{i}];
-                pos_data = copy(obj.Trial.data.BK.Positions);
-                vel_data = obj.Trial.data.BK.Velocities;
-                pos_data.spline(obj.Trial.data.IK.InputMarkers.Frequency);
+                pos_data = copy(obj.BK.Positions);
+                vel_data = obj.BK.Velocities;
+                pos_data.spline(obj.Markers.Trajectories.Frequency);
                 com_pos = pos_data.getColumn(com_label);
                 com_vel = vel_data.getColumn(com_label);
-                
-                % If necessary account for speed in the CoM.
-                if strcmp(directions{i}, 'x')
-                    time = obj.Trial.data.BK.Positions.getTotalTime();
-                    com_pos = GaitCycle.accountForTreadmill(com_pos, time, speed);
-                    com_vel = com_vel + speed;
-                end
                 
                 % Apply a filter - TEMPORARILY WHILE BK DOESN'T DO THIS!!
                 dt = 1/100;
@@ -213,6 +206,133 @@ classdef GaitCycle < Motion
                         result = min(result.(direction));
                 end
             end
+        end
+        
+        function visualise(obj, bos_params, frame, varargin)
+            
+            leg_length = [];
+            cutoff = [];
+            if ~isempty(bos_params)
+                leg_length = bos_params{1};
+                if length(bos_params) > 1
+                    cutoff = bos_params{2};
+                end
+            end
+            
+            [points, polygons, labels] = ...
+                obj.parseVisualiseArgs(leg_length, cutoff, varargin{:});
+            
+            n_points = length(points);
+            n_polygons = length(polygons);
+            
+            switch frame
+                case 'all'
+                    start_frame = 1;
+                    n_frames = obj.Markers.Trajectories.NFrames;
+                otherwise
+                    start_frame = frame;
+                    n_frames = frame;
+            end
+            
+            % Create plot axis properties etc.
+            figure;
+            title('Stability', 'FontSize', 20);
+            xlabel('z (m)', 'FontSize', 15);
+            ylabel('x (m)', 'FontSize', 15);
+            hold on;
+            axis([-0.3, 0.4, -0.1, 2.3]);
+            pbaspect([1 2 1]);
+            ax = gca;
+            ax.FontSize = 15;
+            
+            % Assign some params.
+            point_style = {'bx', 'rx'};
+            polygon_lines = {'-', '--', ':'};
+            
+            % Create an animated line for every polygon.
+            animated_lines = cell(1, n_polygons);
+            for i=1:n_polygons
+                animated_lines{i} = animatedline(...
+                    'LineWidth', 1.5, 'LineStyle', polygon_lines{i}); 
+            end
+            
+            for frame = start_frame:n_frames
+                
+                % Wait so we can see it.
+                pause(0.05);
+                
+                % Clear the plot.
+                if frame ~= start_frame
+                    delete(findobj(gca, 'type', 'line'));
+                    for p=1:n_polygons
+                        clearpoints(animated_lines{p});
+                    end
+                end
+                
+                % Get the lines for this frame.
+                for p = 1:n_polygons
+                    lines = polygons{p}(frame);
+                    
+                    % Draw each line.
+                    for l = 1:length(lines)
+                        addpoints(...
+                            animated_lines{p}, lines{l}.z(:), lines{l}.x(:));
+                    end
+                end
+                
+                % Draw each point.
+                for p = 1:n_points
+                    plot(points{p}.z(frame), points{p}.x(frame), ...
+                        point_style{p}, 'LineWidth', 1.5, 'MarkerSize', 12);
+                end
+                
+                % Add legend.
+                legend(labels{:}, 'Location', 'SouthEast', 'FontSize', 15);
+                
+                % Update the plot.
+                drawnow;
+            end
+            
+        end
+        
+        function [points, polygons, labels] = ...
+                parseVisualiseArgs(obj, leg_length, cutoff, varargin)
+            
+            points = {};
+            polygons = {};
+            labels = {};
+            
+            if any(strcmp('BoS', varargin))
+                polygons = [polygons {obj.computeBoS(cutoff)}];
+                labels = [labels 'BoS'];
+            end
+            
+            if any(strcmp('PBoS', varargin))
+                polygons = [polygons {obj.computeProjectedBoS()}];
+                labels = [labels 'PBoS'];
+            end
+            
+            if any(strcmp('XPBoS', varargin))
+                polygons = [polygons {obj.computeXProjectedBoS(leg_length)}];
+                labels = [labels 'XPBoS'];
+            end
+            
+            if any(strcmp('CoM', varargin))
+                [p, ~] = obj.calculateCoMPositionAndVelocity();
+                com.x = p.x;
+                com.z = p.z;
+                points = [points com];
+                labels = [labels 'CoM'];
+            end
+            
+            if any(strcmp('XCoM', varargin))
+                [p, v] = obj.calculateCoMPositionAndVelocity();
+                xcom.x = calculateXCoM(p.x, v.x, leg_length);
+                xcom.z = calculateXCoM(p.z, v.z, leg_length);
+                points = [points xcom];
+                labels = [labels 'XCoM'];
+            end
+            
         end
         
         function visualiseBoS(obj, cutoff, speed, leg_length, t)
@@ -354,8 +474,8 @@ classdef GaitCycle < Motion
         
             % Isolate vertical force data for each foot.
             vert = 'vy';
-            right = obj.Trial.data.GRF.Forces.getColumn([obj.GRFRightFoot vert]);
-            left = obj.Trial.data.GRF.Forces.getColumn([obj.GRFLeftFoot vert]);
+            right = obj.GRF.Forces.getColumn([obj.GRFRightFoot vert]);
+            left = obj.GRF.Forces.getColumn([obj.GRFLeftFoot vert]);
             
             % The index at which each peak occurs.
             right_zeros = find(right == 0);
@@ -380,7 +500,7 @@ classdef GaitCycle < Motion
         
             vert = 'vy';
             indices = ...
-                find(obj.Trial.data.GRF.Forces.getColumn([foot vert]) > cutoff);
+                find(obj.GRF.Forces.getColumn([foot vert]) > cutoff);
             if sum(diff(indices) ~= 1)
                 error('Multiple stance phases detected.');
             end
@@ -392,7 +512,7 @@ classdef GaitCycle < Motion
         
             vert = 'vy';
             indices = ...
-                find(obj.Trial.data.GRF.Forces.getColumn([foot vert]) > cutoff);
+                find(obj.GRF.Forces.getColumn([foot vert]) > cutoff);
             
             diff_f = diff(indices);
             if sum(diff_f ~= 1) ~= 1
@@ -404,49 +524,21 @@ classdef GaitCycle < Motion
             
         end
         
-        function [lines, bounds] = computeAXProjectedBoS(obj, speed, leg_length)
+        function [lines, bounds] = computeXProjectedBoS(obj, leg_length)
             
             % Get the timestep associated with marker data.
-            markers = copy(obj.Trial.data.IK.InputMarkers);
-            
-            % Ignore the last frame -TEMPORARY DUE TO OPENSIM BUG!
-            markers = markers.slice([1:markers.NFrames-1]);
-            
-            % Convert to m.
-            markers.scaleColumns(0.001);  % Conversion to m.
-            
-            % Account for speed.
-            state_labels = markers.Labels(3:end);
-            time = markers.getTotalTime();
-            for i=1:3:length(state_labels)-2
-                input = markers.getColumn(state_labels{i});
-                adjusted_input = ...
-                    GaitCycle.accountForTreadmill(input, time, speed);
-                markers.setColumn(state_labels{i}, adjusted_input);
-            end
+            markers = copy(obj.Markers.Trajectories);
             
             % Compute velocities.
             velocity = markers.computeGradients();
             
             % Get the BK data.
-            positions = copy(obj.Trial.data.BK.Positions);
-            velocities = copy(obj.Trial.data.BK.Velocities);
+            positions = copy(obj.BK.Positions);
+            velocities = copy(obj.BK.Velocities);
             
             % Spline it down.
             positions.spline(markers.Frequency);
             velocities.spline(markers.Frequency);
-            
-            % Account for speed.
-            state_labels = positions.Labels(2:end);
-            time = positions.getTotalTime();
-            for i=1:3:length(state_labels)-2
-                input = positions.getColumn(state_labels{i});
-                adjusted_input = ...
-                    GaitCycle.accountForTreadmill(input, time, speed);
-                positions.setColumn(state_labels{i}, adjusted_input);
-                input = velocities.getColumn(state_labels{i});
-                velocities.setColumn(state_labels{i}, input + speed);
-            end
             
             % Get com data.
             com_pos = positions.getColumn([obj.CoM 'X']);
@@ -547,128 +639,10 @@ classdef GaitCycle < Motion
             
         end
         
-        function [lines, bounds] = computeXProjectedBoS(obj, speed, leg_length)
+        function [lines, bounds] = computeProjectedBoS(obj)
             
             % Get the timestep associated with marker data.
-            markers = copy(obj.Trial.data.IK.InputMarkers);
-            
-            % Convert to m.
-            markers.scaleColumns(0.001);  % Conversion to m.
-            
-            % Account for speed.
-            state_labels = markers.Labels(3:end);
-            time = markers.getTotalTime();
-            for i=1:3:length(state_labels)-2
-                input = markers.getColumn(state_labels{i});
-                adjusted_input = ...
-                    GaitCycle.accountForTreadmill(input, time, speed);
-                markers.setColumn(state_labels{i}, adjusted_input);
-            end
-            
-            % Compute velocities.
-            velocity = markers.computeGradients();
-            
-            % Access the big toe data.
-            right_toe = markers.getColumn(['R' obj.MTP1Marker 'X']);
-            left_toe = markers.getColumn(['L' obj.MTP1Marker 'X']);
-            right_heel = markers.getColumn(['R' obj.HeelMarker 'X']);
-            left_heel = markers.getColumn(['L' obj.HeelMarker 'X']);
-            right_heel_vel = velocity.getColumn(['R' obj.HeelMarker 'X']);
-            left_heel_vel = velocity.getColumn(['L' obj.HeelMarker 'X']);
-            
-            % Extrapolate it.
-            right_toe = calculateXCoM(right_toe, right_heel_vel, leg_length);
-            left_toe = calculateXCoM(left_toe, left_heel_vel, leg_length);
-            
-            % 
-            right_leads = right_toe > left_toe;
-            left_leads = left_toe > right_toe;
-            
-            if right_leads(1)
-                ind = find(right_leads == 0);
-                labels = {'R', 'L'};
-            else
-                ind = find(left_leads == 0, 1);
-                labels = {'L', 'R'};
-            end
-            first_lead = 1:(ind(1)-1);
-            off = ind(1):ind(end);
-            second_lead = (ind(end)+1):length(right_toe);
-            
-            % Extrapolate every marker by the correct ankle marker velocity.
-            for i=3:markers.NCols
-                label = markers.Labels{i};
-                if strcmp(label(1), 'R')
-                    vel = velocity.getColumn(['R_Ankle_Lat_' label(end)]);
-                else
-                    vel = velocity.getColumn(['L_Ankle_Lat_' label(end)]);
-                end
-                col = markers.getColumn(i);
-                new = calculateXCoM(col, vel, leg_length);
-                markers.setColumn(i, new);
-            end
-            
-            % Chop in to 3 segments.
-            first_lead = markers.slice(first_lead);
-            off = markers.slice(off);
-            second_lead = markers.slice(second_lead);
-            
-            % Compute double support lines for entire gait cycle.
-            line{1} = obj.computeBoSDoubleSupport(first_lead, labels{1}, labels{2});
-            line{2} = obj.computeBoSDoubleSupport(off, labels{2}, labels{1});
-            line{3} = obj.computeBoSDoubleSupport(second_lead, labels{1}, labels{2});
-            
-            % Create a line map.
-            key_set = [];
-            value_set = {};
-            bound_set = {};
-            offset = 0;
-            
-            for i=1:length(line)
-                n_frames = size(line{i}.x, 3);
-                n_lines = size(line{i}.x, 1);
-                n_points = size(line{i}.x, 2);
-                
-                for j=1:n_frames
-                    key_set = [key_set j + offset];
-                    lines = {};
-                    for k=1:n_lines
-                        lines{k}.x = reshape(line{i}.x(k,:,j), n_points, 1);
-                        lines{k}.z = reshape(line{i}.z(k,:,j), n_points, 1);
-                    end
-                    bounds = {};
-                    for k=1:4
-                        bounds{k}.x = reshape(line{i}.bounds.x(k,:,j), n_points, 1);
-                        bounds{k}.z = reshape(line{i}.bounds.z(k,:,j), n_points, 1);
-                    end
-                    value_set{j + offset} = lines;
-                    bound_set{j + offset} = bounds;
-                end
-                offset = offset + n_frames;
-            end
-                    
-            lines = containers.Map(key_set, value_set);
-            bounds = containers.Map(key_set, bound_set);
-            
-        end
-        
-        function [lines, bounds] = computeProjectedBoS(obj, speed)
-            
-            % Get the timestep associated with marker data.
-            markers = copy(obj.Trial.data.IK.InputMarkers);
-            
-            % Convert to m.
-            markers.scaleColumns(0.001);  % Conversion to m.
-            
-            % Account for speed.
-            state_labels = markers.Labels(3:end);
-            time = markers.getTotalTime();
-            for i=1:3:length(state_labels)-2
-                input = markers.getColumn(state_labels{i});
-                adjusted_input = ...
-                    GaitCycle.accountForTreadmill(input, time, speed);
-                markers.setColumn(state_labels{i}, adjusted_input);
-            end
+            markers = copy(obj.Markers.Trajectories);
             
             % Access the big toe data.
             right_toe = markers.getColumn(['R' obj.MTP1Marker 'X']);
@@ -733,7 +707,7 @@ classdef GaitCycle < Motion
             
         end
         
-        function [lines, bounds] = computeBoS(obj, cutoff, speed)
+        function [lines, bounds] = computeBoS(obj, cutoff)
         % Compute & return the BoS trajectory.
         %
         % Returns a map which takes a frame and returns a structure of
@@ -755,20 +729,7 @@ classdef GaitCycle < Motion
             phase = cell(n_phases, 1);
             
             % Get the timestep associated with marker data.
-            markers = copy(obj.Trial.data.IK.InputMarkers);
-            
-            % Convert to m.
-            markers.scaleColumns(0.001);  % Conversion to m.
-            
-            % Account for speed.
-            state_labels = markers.Labels(3:end);
-            time = markers.getTotalTime();
-            for i=1:3:length(state_labels)-2
-                input = markers.getColumn(state_labels{i});
-                adjusted_input = ...
-                    GaitCycle.accountForTreadmill(input, time, speed);
-                markers.setColumn(state_labels{i}, adjusted_input);
-            end
+            markers = copy(obj.Markers.Trajectories);
             
             % Take the appropriate slices.
             for i=1:n_phases
@@ -838,7 +799,7 @@ classdef GaitCycle < Motion
             double_support = intersect(leading_stance, off_stance);
             
             % Get the timesteps.
-            time = obj.Trial.data.GRF.Forces.getColumn('time');
+            time = obj.GRF.Forces.getColumn('time');
             
             % Split in to first and second double support phase.
             diff_ds = diff(double_support);
@@ -951,15 +912,6 @@ classdef GaitCycle < Motion
                         lines.(directions{d})(6, :, i) = linspace(lead_bottom.(directions{d})(i), ...
                             lead_top_left.(directions{d})(i), markers.Frequency);
                         
-                        lines.bounds.(directions{d})(1, :, i) = linspace(lead_top_left.(directions{d})(i), ...
-                            corner_top_right.(directions{d})(i), markers.Frequency);
-                        lines.bounds.(directions{d})(2, :, i) = linspace(corner_top_right.(directions{d})(i), ...
-                            corner_bottom_right.(directions{d})(i), markers.Frequency);
-                        lines.bounds.(directions{d})(3, :, i) = linspace(corner_bottom_right.(directions{d})(i), ...
-                            corner_bottom_left.(directions{d})(i), markers.Frequency);
-                        lines.bounds.(directions{d})(4, :, i) = linspace(corner_bottom_left.(directions{d})(i), ...
-                            lead_top_left.(directions{d})(i), markers.Frequency);
-                        
                     elseif lead_heel_x(i) < off_heel_x(i)
                         lines.(directions{d})(1, :, i) = linspace(lead_top_left.(directions{d})(i), ...
                             lead_top_right.(directions{d})(i), markers.Frequency);
@@ -972,15 +924,6 @@ classdef GaitCycle < Motion
                         lines.(directions{d})(5, :, i) = linspace(lead_bottom_right.(directions{d})(i), ...
                             lead_bottom.(directions{d})(i), markers.Frequency);
                         lines.(directions{d})(6, :, i) = linspace(lead_bottom.(directions{d})(i), ...
-                            lead_top_left.(directions{d})(i), markers.Frequency);
-                        
-                        lines.bounds.(directions{d})(1, :, i) = linspace(lead_top_left.(directions{d})(i), ...
-                            corner_top_right.(directions{d})(i), markers.Frequency);
-                        lines.bounds.(directions{d})(2, :, i) = linspace(corner_top_right.(directions{d})(i), ...
-                            off_corner_bottom_right.(directions{d})(i), markers.Frequency);
-                        lines.bounds.(directions{d})(3, :, i) = linspace(off_corner_bottom_right.(directions{d})(i), ...
-                            off_corner_bottom_left.(directions{d})(i), markers.Frequency);
-                        lines.bounds.(directions{d})(4, :, i) = linspace(off_corner_bottom_left.(directions{d})(i), ...
                             lead_top_left.(directions{d})(i), markers.Frequency);
                         
                         
@@ -1033,15 +976,6 @@ classdef GaitCycle < Motion
                     lines.(directions{d})(3, :, i) = linspace(bottom_right.(directions{d})(i),...
                         bottom_left.(directions{d})(i), markers.Frequency);
                     lines.(directions{d})(4, :, i) = linspace(bottom_left.(directions{d})(i), ...
-                        top_left.(directions{d})(i), markers.Frequency);
-                    
-                    lines.bounds.(directions{d})(1, :, i) = linspace(top_left.(directions{d})(i), ...
-                        top_right.(directions{d})(i), markers.Frequency);
-                    lines.bounds.(directions{d})(2, :, i) = linspace(top_right.(directions{d})(i), ...
-                        bottom_right.(directions{d})(i), markers.Frequency);
-                    lines.bounds.(directions{d})(3, :, i) = linspace(bottom_right.(directions{d})(i),...
-                        bottom_left.(directions{d})(i), markers.Frequency);
-                    lines.bounds.(directions{d})(4, :, i) = linspace(bottom_left.(directions{d})(i), ...
                         top_left.(directions{d})(i), markers.Frequency);
                 end
             end

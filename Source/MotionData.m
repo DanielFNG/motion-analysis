@@ -1,24 +1,17 @@
-classdef MotionData < handle
+classdef MotionData < handle & dynamicprops
 % Class for loading & obtaining read access to OpenSim simulation data.
 
     properties (SetAccess = private)
         TimeRange
-        Markers
-        GRF
-        IK
-        RRA
-        BK
-        ID
-        CMC
-    end
-    
-    properties (Access = {?DynamicMotion})
-        Trial
+        Frequency = 1000
+        ModelMass
+        MotionSpeed = 0
+        MotionDirection = 'N/A'
     end
     
     properties (Access = private)
-        Analyses = {'Markers', 'GRF', 'IK', 'RRA', 'BK', 'ID', 'CMC'}
-        Frequency = 1000
+        LoadedAnalyses
+        Trial
     end
         
     methods
@@ -26,11 +19,14 @@ classdef MotionData < handle
         function obj = MotionData(trial, analyses, speed, direction)
             if nargin > 0
                 obj.Trial = trial;
+                obj.computeModelMass();
                 if nargin > 1
                     obj.load(analyses);
                 end
                 if nargin > 2
                     obj.accountForFixedSpeed(speed, direction);
+                    obj.MotionSpeed = speed;
+                    obj.MotionDirection = direction;
                 end
             end
         end
@@ -48,43 +44,47 @@ classdef MotionData < handle
                 % Check analysis is computed - if so get results folder.
                 analysis = analyses{i};
                 folder = obj.preload(analysis);
-                obj.(analysis) = {};
             
-                % Load analysis Data. 
+                % Load analysis Data.
+                obj.addprop(analysis);
                 switch analysis
+                    
                     case 'GRF'
-                        obj.GRF.Forces = Data(obj.Trial.grfs_path);
+                        obj.(analysis).Forces = Data(obj.Trial.grfs_path);
                     case 'Markers'
-                        obj.Markers.Trajectories = ...
+                        obj.(analysis).Trajectories = ...
                             Data(obj.Trial.input_coordinates);
-                        obj.Markers.Trajectories.convertUnits('m');
+                        obj.(analysis).Trajectories.convertUnits('m');
                     case 'IK'
-                        obj.IK.Kinematics = ...
+                        obj.(analysis).Kinematics = ...
                             Data([folder filesep 'ik.mot']);
-                        obj.IK.OutputMarkers = Data(...
+                        obj.(analysis).OutputMarkers = Data(...
                             [folder filesep 'ik_model_marker_locations.sto']);
                     case 'RRA'
-                        obj.RRA.Kinematics = ...
+                        obj.(analysis).Kinematics = ...
                             Data([folder filesep 'RRA_Kinematics_q.sto']);
-                        obj.RRA.Forces = ...
+                        obj.(analysis).Forces = ...
                             Data([folder filesep 'RRA_Actuation_force.sto']);
-                        obj.RRA.TrackingErrors = ...
+                        obj.(analysis).TrackingErrors = ...
                             Data([folder filesep 'RRA_Kinematics_q.sto']);
                     case 'BK'
-                        obj.BK.Positions = Data([folder filesep ...
+                        obj.(analysis).Positions = Data([folder filesep ...
                             'Analysis_BodyKinematics_pos_global.sto']);
-                        obj.BK.Velocities = Data([folder filesep ...
+                        obj.(analysis).Velocities = Data([folder filesep ...
                             'Analysis_BodyKinematics_vel_global.sto']);
-                        obj.BK.Accelerations = Data([folder ...
+                        obj.(analysis).Accelerations = Data([folder ...
                             filesep 'Analysis_BodyKinematics_acc_global.sto']);
                     case 'ID'
-                        obj.ID.JointTorques = ...
+                        obj.(analysis).JointTorques = ...
                             Data([folder filesep 'id.sto']);
                     case 'CMC'
                         % Not yet implemented - need to see which files need to
                         % be read in. Will wait until more CMC-based analysis
                         % is required.
                 end
+                
+                % Updated loaded memory.
+                obj.LoadedAnalyses = [obj.LoadedAnalyses {analysis}];
             end
             
             % Update time range.
@@ -124,13 +124,11 @@ classdef MotionData < handle
             timesteps(timesteps < start | timesteps > finish) = [];
             
             % Spline all the data.
-            for i=1:length(obj.Analyses)
-                analysis = obj.Analyses{i};
-                if ~isempty(obj.(analysis))
-                    fields = fieldnames(obj.(analysis));
-                    for j=1:length(fields)
-                        obj.(analysis).(fields{j}).spline(timesteps);
-                    end
+            for i=1:length(obj.LoadedAnalyses)
+                analysis = obj.LoadedAnalyses{i};
+                fields = fieldnames(obj.(analysis));
+                for j=1:length(fields)
+                    obj.(analysis).(fields{j}).spline(timesteps);
                 end
             end
             
@@ -147,9 +145,9 @@ classdef MotionData < handle
             timesteps = [];
             
             % Calculate the total time of all loaded analyses.
-            for i=1:length(obj.Analyses)
-                analysis = obj.Analyses{i};
-                if ~isempty(obj.(analysis))
+            for i=1:length(obj.LoadedAnalyses)
+                analysis = obj.LoadedAnalyses{i};
+                if obj.isLoaded(analysis)
                     inner_fields = fieldnames(obj.(analysis));
                     data = obj.(analysis).(inner_fields{1});
                     range = data.getTimeRange();
@@ -221,6 +219,18 @@ classdef MotionData < handle
                     velocity.setColumn(j, initial_values + speed);
                 end
             end
+            
+        end
+        
+        function computeModelMass(obj)
+            
+            obj.ModelMass = obj.Trial.getInputModelMass();
+            
+        end
+        
+        function bool = isLoaded(obj, analysis)
+            
+            bool = isprop(obj, analysis);
             
         end
         

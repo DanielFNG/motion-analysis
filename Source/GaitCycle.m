@@ -1,4 +1,4 @@
-classdef GaitCycle < SidedMotion & DynamicMotion
+classdef GaitCycle < Motion
 % Class for using OpenSim analysis data to perform calculations.
 
     properties (Access = private)
@@ -54,7 +54,7 @@ classdef GaitCycle < SidedMotion & DynamicMotion
             % WNPT calculation. 
             torque = ...
                 obj.MotionData.ID.JointTorques.getColumn([joint obj.Torque]);
-            mass = obj.MotionData.Trial.getInputModelMass();
+            mass = obj.MotionData.ModelMass();
             result = peak2peak(torque)/mass;
         end
         
@@ -71,7 +71,7 @@ classdef GaitCycle < SidedMotion & DynamicMotion
             for i=1:length(directions)
                 label = directions{i};
                 cp = ['_p' label];
-                cop = obj.Trial.data.GRF.Forces.getColumn([foot cp]);
+                cop = obj.MotionData.GRF.Forces.getColumn([foot cp]);
                 result.(directions{i}) = peak2peak(cop(stance));
             end
             

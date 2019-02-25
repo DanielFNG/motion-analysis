@@ -45,6 +45,19 @@ classdef GaitCycle < SidedMotion & DynamicMotion
         
         end
         
+        function result = calculateWNPPT(obj, joint)
+        % Calculate weight-normalised peak-to-peak torque at given joint.
+        
+            % Analysis requirements.
+            obj.require('ID');
+            
+            % WNPT calculation. 
+            torque = ...
+                obj.MotionData.ID.JointTorques.getColumn([joint obj.Torque]);
+            mass = obj.MotionData.Trial.getInputModelMass();
+            result = peak2peak(torque)/mass;
+        end
+        
         function result = calculateCoPD(obj, cutoff, direction)
         % Calculate CoP displacement at the leading foot. 
         

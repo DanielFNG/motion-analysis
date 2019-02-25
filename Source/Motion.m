@@ -7,6 +7,8 @@ classdef Motion < handle
     
     properties (Access = protected)
         CoM = 'center_of_mass_'
+        Gravity = 9.80665
+        Torque = '_moment'
     end
         
     methods

@@ -1,28 +1,27 @@
-function [u_max, multiplier] = calculateUMax(line_map, x, z)
+function [u_max, multiplier] = calculateUMax(polygon, x, z)
 
-    % Annoying IK bug.
-    top_level = line_map.Count - 1;
+    n_frames = length(x);
 
     % Make initial assignments.
-    u_max.x.x = 1000*ones(top_level, 1);
+    u_max.x.x = 1000*ones(n_frames, 1);
     u_max.x.z = z;
     u_max.z.x = x;
-    u_max.z.z = 1000*ones(top_level, 1);
-    multiplier.x = zeros(top_level, 1);
+    u_max.z.z = u_max.x.x;
+    multiplier.x = zeros(n_frames, 1);
     multiplier.z = multiplier.x;
     
-    for frame = 1:top_level
+    for frame = 1:n_frames
         
         % Get the lines.
-        lines = line_map(frame);
+        lines = polygon{frame};
         n_lines = length(lines);
         
         % Get the polygon.
         polyx = [];
         polyz = [];
         for line = 1:n_lines
-            polyx = [polyx; lines{line}.x];  %#ok<*AGROW>
-            polyz = [polyz; lines{line}.z];
+            polyx = [polyx, lines{line}.x];  %#ok<*AGROW>
+            polyz = [polyz, lines{line}.z];
         end
         
         % Check whether the point is inside the polygon.

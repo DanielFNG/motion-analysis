@@ -1,4 +1,4 @@
-function result = calculateXCoM(x, v, l)
+function result = extrapolatePendulum(x, v, l)
 
 % Define the gravity constant.
 g = 9.80665;

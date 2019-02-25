@@ -92,6 +92,12 @@ classdef MotionData < handle & dynamicprops
             
         end
         
+        function bool = isLoaded(obj, analysis)
+            
+            bool = isprop(obj, analysis);
+            
+        end
+        
     end
     
     methods (Access = private)
@@ -147,14 +153,12 @@ classdef MotionData < handle & dynamicprops
             % Calculate the total time of all loaded analyses.
             for i=1:length(obj.LoadedAnalyses)
                 analysis = obj.LoadedAnalyses{i};
-                if obj.isLoaded(analysis)
-                    inner_fields = fieldnames(obj.(analysis));
-                    data = obj.(analysis).(inner_fields{1});
-                    range = data.getTimeRange();
-                    start_times = [start_times, range(1)];  %#ok<AGROW>
-                    finish_times = [finish_times, range(2)];  %#ok<AGROW>
-                    timesteps = [timesteps 1/data.Frequency];  %#ok<AGROW>
-                end
+                inner_fields = fieldnames(obj.(analysis));
+                data = obj.(analysis).(inner_fields{1});
+                range = data.getTimeRange();
+                start_times = [start_times, range(1)];  %#ok<AGROW>
+                finish_times = [finish_times, range(2)];  %#ok<AGROW>
+                timesteps = [timesteps 1/data.Frequency];  %#ok<AGROW>
             end
             
             % Get the appropriate tolerance to use.
@@ -225,12 +229,6 @@ classdef MotionData < handle & dynamicprops
         function computeModelMass(obj)
             
             obj.ModelMass = obj.Trial.getInputModelMass();
-            
-        end
-        
-        function bool = isLoaded(obj, analysis)
-            
-            bool = isprop(obj, analysis);
             
         end
         

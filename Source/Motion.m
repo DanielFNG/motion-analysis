@@ -80,7 +80,7 @@ classdef Motion < handle
         
             for i=1:length(analyses)
                 analysis = analyses{i};
-                if isempty(obj.MotionData.(analysis))
+                if ~obj.MotionData.isLoaded(analysis)
                     error('Required analysis data not loaded.');
                 end
             end

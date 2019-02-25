@@ -1,7 +1,7 @@
-classdef GaitCycle < Motion
+classdef GaitCycle < SidedMotion & DynamicMotion
 % Class for using OpenSim analysis data to perform calculations.
 
-    properties (GetAccess = private, SetAccess = private)
+    properties (Access = private)
         GRFRightFoot = 'ground_force1_' 
         GRFLeftFoot = 'ground_force2_'
         MTP1Marker = '_MTP1_'
@@ -43,20 +43,6 @@ classdef GaitCycle < Motion
             % Compute step width.
             result = abs(second(1) - first(1));
         
-        end
-        
-        function result = calculateCoMD(obj, direction, speed)
-        % Calculate CoM displacement.
-        
-            if nargin == 1 || any(strcmp({'y', 'z'}, direction))
-                result = Motion.calculateCoMD(obj, direction);
-            else
-                obj.require('BK');
-                label = [obj.CoM direction];
-                data = obj.accountForTreadmill(...
-                    obj.Trial.data.BK.Positions.getColumn(label), speed);
-                result = peak2peak(data);
-            end
         end
         
         function result = calculateCoPD(obj, cutoff, direction)
@@ -786,8 +772,6 @@ classdef GaitCycle < Motion
             
         end
         
-        
-        
         function times = identifySupportPhases(obj, cutoff, foot, off_foot)
             
             % Identify the stance phases for each.
@@ -875,19 +859,14 @@ classdef GaitCycle < Motion
             lead_bottom_right.z = lead_big_toe_z;
             
             corner_top_right.x = lead_big_toe_x;
-            corner_top_right.z = off_small_toe_z;
             
             corner_bottom_right.x = off_heel_x;
-            corner_bottom_right.z = off_small_toe_z;
             
             corner_bottom_left.x = off_heel_x;
-            corner_bottom_left.z = lead_small_toe_z;
             
             off_corner_bottom_right.x = lead_heel_x;
-            off_corner_bottom_right.z = off_small_toe_z;
             
             off_corner_bottom_left.x = lead_heel_x;
-            off_corner_bottom_left.z = lead_small_toe_z;
             
             n_lines = 6;
             lines.x = zeros(n_lines, markers.Frequency, markers.NFrames);

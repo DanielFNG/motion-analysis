@@ -252,8 +252,8 @@ classdef Gait < Motion
             
             [p, v] = obj.getCoMPositionAndVelocity();
             
-            xcom.x = extrapolatePendulum(p.x, v.x, obj.MotionData.LegLength);
-            xcom.z = extrapolatePendulum(p.z, v.z, obj.MotionData.LegLength);
+            xcom.x = extrapolatePendulum(p.x, v.x, 0, obj.MotionData.LegLength);
+            xcom.z = extrapolatePendulum(p.z, v.z, 0, obj.MotionData.LegLength);
             
         end
         
@@ -421,7 +421,7 @@ classdef Gait < Motion
                     for marker = 1:length(markers)
                         marker_label = [side markers{marker} direction];
                         x = marker_data.getColumn(marker_label);
-                        adjusted = extrapolateMovingPendulum(...
+                        adjusted = extrapolatePendulum(...
                             x, ankle_v, com_v, obj.MotionData.LegLength);
                         marker_data.setColumn(marker_label, adjusted);
                     end

@@ -5,6 +5,8 @@ classdef MotionData < handle & dynamicprops
         TimeRange
         Frequency = 1000
         ModelMass
+        LegLength
+        GRFCutoff
         MotionSpeed = 0
         MotionDirection = 'N/A'
     end
@@ -16,14 +18,17 @@ classdef MotionData < handle & dynamicprops
         
     methods
         
-        function obj = MotionData(trial, analyses, speed, direction)
+        function obj = MotionData(...
+            trial, leg_length, grf_cutoff, analyses, speed, direction)
             if nargin > 0
                 obj.Trial = trial;
+                obj.LegLength = leg_length;
+                obj.GRFCutoff = grf_cutoff;
                 obj.computeModelMass();
-                if nargin > 1
+                if nargin > 3
                     obj.load(analyses);
                 end
-                if nargin > 2
+                if nargin > 4
                     obj.accountForFixedSpeed(speed, direction);
                     obj.MotionSpeed = speed;
                     obj.MotionDirection = direction;

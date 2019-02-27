@@ -26,7 +26,7 @@ classdef MotionData < handle & dynamicprops
                 obj.LegLength = leg_length;
                 obj.ToeLength = toe_length;
                 obj.GRFCutoff = grf_cutoff;
-                obj.computeModelMass();
+                obj.ModelMass = trial.getInputModelMass();
                 if nargin > 4 
                     obj.load(analyses);  % Markers loaded by default.
                 end
@@ -246,12 +246,6 @@ classdef MotionData < handle & dynamicprops
                     velocity.setColumn(j, initial_values + speed);
                 end
             end
-            
-        end
-        
-        function computeModelMass(obj)
-            
-            obj.ModelMass = obj.Trial.getInputModelMass();
             
         end
         

@@ -234,6 +234,9 @@ classdef Gait < Motion
         % Provide simpler access to CoM position & velocity.
         %
         % Outputs structs p and v which are indexed by x/y/z.
+        
+            % Analysis requirements.
+            obj.require('BK');
             
             % Directional behaviour.
             directions = {'x', 'y', 'z'};
@@ -431,6 +434,9 @@ classdef Gait < Motion
         end
         
         function polygons = computeXPBoS(obj)
+            
+            % Analysis requirements.
+            obj.require({'Markers', 'BK'});
            
             % Initialise.
             n_frames = obj.MotionData.Markers.Trajectories.NFrames;
@@ -452,6 +458,9 @@ classdef Gait < Motion
         end
         
         function polygons = computePBoS(obj)
+            
+            % Analysis requirements.
+            obj.require('Markers');
            
             % Initialise.
             n_frames = obj.MotionData.Markers.Trajectories.NFrames;
@@ -470,6 +479,9 @@ classdef Gait < Motion
         end
         
         function polygons = computeBoS(obj)
+            
+            % Analysis requirements.
+            obj.require({'Markers', 'GRF'});
             
             % Initialise.
             n_frames = obj.MotionData.Markers.Trajectories.NFrames;

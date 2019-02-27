@@ -12,7 +12,7 @@ classdef MotionData < handle & dynamicprops
         MotionDirection = 'N/A'
     end
     
-    properties %(Access = private)
+    properties (Access = private)
         LoadedAnalyses
         Trial
     end
@@ -27,10 +27,10 @@ classdef MotionData < handle & dynamicprops
                 obj.ToeLength = toe_length;
                 obj.GRFCutoff = grf_cutoff;
                 obj.computeModelMass();
-                if nargin > 3
-                    obj.load(analyses);
+                if nargin > 4 
+                    obj.load(analyses);  % Markers loaded by default.
                 end
-                if nargin > 4
+                if nargin > 5
                     obj.accountForFixedSpeed(speed, direction);
                     obj.MotionSpeed = speed;
                     obj.MotionDirection = direction;
@@ -196,9 +196,26 @@ classdef MotionData < handle & dynamicprops
         
         function accountForFixedSpeed(obj, speed, direction)
             
+            % Different behaviour depending on loaded status.
+            positions = {};
+            if any(strcmp(obj.LoadedAnalyses, 'Markers'))
+                positions{end + 1} = obj.Markers.Trajectories;
+            end
+            
+            if any(strcmp(obj.LoadedAnalyses, 'BK'))
+                positions{end + 1} = obj.BK.Positions;
+                velocity = obj.BK.Velocities;
+            else
+                velocity.NCols = 0;
+            end
+            
+            if any(strcmp(obj.LoadedAnalyses, 'GRF'))
+                forces = obj.GRF.Forces;
+            else
+                forces.NCols = 0;
+            end
+            
             % Cartesian position adjustment.
-            positions = {obj.Markers.Trajectories, ...
-                obj.BK.Positions};
             for i=1:length(positions)
                 time = positions{i}.getTotalTime();
                 for j=1:positions{i}.NCols
@@ -212,9 +229,9 @@ classdef MotionData < handle & dynamicprops
             end
             
             % CoP adjustment.
-            forces = obj.GRF.Forces;
             for j=1:forces.NCols
                 if strcmpi(forces.Labels{j}(end-1:end), ['p' direction])
+                    time = forces.getTotalTime();
                     initial_values = forces.getColumn(j);
                     adjusted_values = accountForMovingReferenceFrame(...
                         initial_values, time, speed);
@@ -223,7 +240,6 @@ classdef MotionData < handle & dynamicprops
             end
             
             % BK velocity adjustment.
-            velocity = obj.BK.Velocities;
             for j=1:velocity.NCols
                 if strcmpi(velocity.Labels{j}(end), direction)
                     initial_values = velocity.getColumn(j);

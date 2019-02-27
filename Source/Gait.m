@@ -109,7 +109,7 @@ classdef Gait < Motion
             end
         end
         
-        function visualise(obj, frame, filename, varargin)
+        function visualise(obj, frame, jump, filename, varargin)
             
             [points, polygons, lines, labels] = ...
                 obj.parseVisualiseArgs(varargin{:});
@@ -118,22 +118,33 @@ classdef Gait < Motion
             n_lines = length(lines);
             n_polygons = length(polygons);
             
-            switch frame
-                case 'all'
-                    start_frame = 1;
-                    n_frames = obj.MotionData.Markers.Trajectories.NFrames;
-                otherwise
+            % Control frame argument behaviour.  
+            if isa(frame, 'char') && strcmp(frame, 'all')
+                start_frame = 1;
+                n_frames = obj.MotionData.Markers.Trajectories.NFrames;
+            else
+                if length(frame) == 1
                     start_frame = frame;
                     n_frames = frame;
+                else
+                    start_frame = frame(1);
+                    n_frames = frame(2);
+                end
+            end
+            
+            % Control gif argument behaviour.
+            if isempty(filename)
+                make_gif = false;
+            else
+                make_gif = true;
             end
             
             % Create plot axis properties etc.
-            figure('units','normalized','outerposition',[0 0 1 1]);
+            fig = figure('units', 'normalized', 'outerposition', [0 0 1 1]);
             title('Stability', 'FontSize', 20);
             xlabel('z (m)', 'FontSize', 15);
             ylabel('x (m)', 'FontSize', 15);
             hold on;
-            axis([-0.3, 0.4, -0.1, 2.3]);
             pbaspect([1 2 1]);
             ax = gca;
             ax.FontSize = 15;
@@ -150,7 +161,10 @@ classdef Gait < Motion
                     'LineWidth', 1.5, 'LineStyle', polygon_lines{i}); 
             end
             
-            for frame = start_frame:10:n_frames
+            % Get the CoM positions which we use for axis scaling.
+            [com_pos, ~] = obj.getCoMPositionAndVelocity();
+            
+            for frame = start_frame:jump:n_frames
                 
                 % Clear the plot.
                 if frame ~= start_frame
@@ -160,10 +174,8 @@ classdef Gait < Motion
                     end
                 end
                 
-                % Get the lines for this frame.
                 for p = 1:n_polygons
                     line_set = polygons{p}{frame};
-                    
                     % Draw each line.
                     for l = 1:length(line_set)
                         addpoints(animated_lines{p}, ...
@@ -171,7 +183,7 @@ classdef Gait < Motion
                     end
                 end
                 
-                % Draw each point.
+                % Draw each point, noting the x values.
                 for p = 1:n_points
                     plot(points{p}.z(frame), points{p}.x(frame), ...
                         point_style{p}, 'LineWidth', 1.5, 'MarkerSize', 12);
@@ -183,34 +195,33 @@ classdef Gait < Motion
                         'LineWidth', 1.5, 'color', line_colors{l});
                 end
                 
+                % Adjust the axes to match the movement of the CoM.
+                axis([-0.3, 0.3, ...
+                    com_pos.x(frame) - 0.8, com_pos.x(frame) + 0.8]);
+                
                 % Add legend.
-                legend(labels{:}, 'Location', 'bestoutside', 'FontSize', 15);
+                lg = legend(labels{:}, 'Location', 'bestoutside');
+                lg.FontSize = 15;
                 
                 % Update the plot.
                 drawnow;
                 
                 % If requested save a gif.
-                if ~isempty(filename)
+                if make_gif
                     fr = getframe(gcf);
                     im = frame2im(fr);
                     [imind, cm] = rgb2ind(im, 256);
-                    if frame == 1
+                    if frame == start_frame
                         imwrite(imind, cm, filename, 'gif', 'Loopcount', inf);
                     else
                         imwrite(imind, cm, filename, 'gif', 'DelayTime', 0, ...
                             'WriteMode', 'append');
                     end
                 end
-            end
-            
-            % Stop the gif from ending so suddenly.
-            if ~isempty(filename)
-                fr = getframe(gcf);
-                im = frame2im(fr);
-                [imind, cm] = rgb2ind(im, 256);
-                for i=1:10
-                    imwrite(imind, cm, filename, 'gif', 'DelayTime', 0, ...
-                        'WriteMode', 'append');
+                
+                % Stop the loop if the figure is closed.
+                if ~ishghandle(fig)
+                    break;
                 end
             end
             
@@ -378,7 +389,7 @@ classdef Gait < Motion
                 
         end
         
-        function indices = isolateOffStancePhase(obj, foot, cutoff)
+        function indices = isolateOffStancePhase(obj, foot)
         % Get the indices corresponding to the stance phases of the off foot.
         %
         % Similar to isolateStancePhase but does not require that only one
@@ -386,7 +397,7 @@ classdef Gait < Motion
         
             vert = 'vy';
             indices = find(obj.MotionData.GRF.Forces.getColumn([foot vert]) ...
-                > Obj.MotionData.GRFCutoff);
+                > obj.MotionData.GRFCutoff);
             
         end
         
@@ -499,7 +510,7 @@ classdef Gait < Motion
             small_toe_z = markers.getColumn([side obj.MTP5Marker 'Z']);
             
             % Create points.
-            top_left.x = big_toe_x(frame);
+            top_left.x = big_toe_x(frame) + obj.MotionData.ToeLength;
             top_left.z = big_toe_z(frame);
             
             top_right.x = top_left.x;
@@ -540,13 +551,13 @@ classdef Gait < Motion
             off_small_toe_z = markers.getColumn([other_side obj.MTP5Marker 'Z']);
             
             % Create points.
-            lead_top_left.x = lead_big_toe_x(frame);
+            lead_top_left.x = lead_big_toe_x(frame) + obj.MotionData.ToeLength;
             lead_top_left.z = lead_small_toe_z(frame);
             
             lead_top_right.x = lead_top_left.x;
             lead_top_right.z = lead_big_toe_z(frame);
             
-            off_top.x = off_big_toe_x(frame);
+            off_top.x = off_big_toe_x(frame) + obj.MotionData.ToeLength;
             off_top.z = off_small_toe_z(frame);
             
             off_bottom_right.x = off_heel_x(frame);

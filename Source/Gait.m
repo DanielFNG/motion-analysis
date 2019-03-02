@@ -269,17 +269,20 @@ classdef Gait < Motion
             labels = {};
             
             if any(strcmp('BoS', varargin))
-                polygons = [polygons {obj.computeBoS()}];
+                bos = obj.computeBoS();
+                polygons = [polygons {bos}];
                 labels = [labels 'BoS'];
             end
             
             if any(strcmp('PBoS', varargin))
-                polygons = [polygons {obj.computePBoS()}];
+                pbos = obj.computePBoS();
+                polygons = [polygons {pbos}];
                 labels = [labels 'PBoS'];
             end
             
             if any(strcmp('XPBoS', varargin))
-                polygons = [polygons {obj.computeXPBoS()}];
+                xpbos = obj.computeXPBoS();
+                polygons = [polygons {xpbos}];
                 labels = [labels 'XPBoS'];
             end
             
@@ -299,9 +302,9 @@ classdef Gait < Motion
                 if ~any(strcmp(labels, 'XCoM')) || ~any(strcmp(labels, 'BoS'))
                     error('Need XCoM and BoS for MoS.');
                 end
-                u_max = calculateUMax(obj.computeBoS(), xcom.x, xcom.z);
-                lines = [lines {obj.constructLine(u_max.x, xcom)} ...
-                    {obj.constructLine(u_max.z, xcom)}];
+                u_max = calculateUMax(bos, xcom.x, xcom.z);
+                lines = [lines {obj.constructLineTrajectory(u_max.x, xcom)} ...
+                    {obj.constructLineTrajectory(u_max.z, xcom)}];
                 labels = [labels 'MoS-x' 'MoS-z'];
             end
             
@@ -309,9 +312,9 @@ classdef Gait < Motion
                 if ~any(strcmp(labels, 'CoM')) || ~any(strcmp(labels, 'PBoS'))
                     error('Need CoM and PBoS for MoSCoM.');
                 end
-                u_max = calculateUMax(obj.computePBoS(), p.x, p.z);
-                lines = [lines {obj.constructLine(u_max.x, p)} ...
-                    {obj.constructLine(u_max.z, p)}];
+                u_max = calculateUMax(pbos, p.x, p.z);
+                lines = [lines {obj.constructLineTrajectory(u_max.x, p)} ...
+                    {obj.constructLineTrajectory(u_max.z, p)}];
                 labels = [labels 'MoSCoM-x' 'MoSCoM-z'];
             end
             
@@ -320,9 +323,9 @@ classdef Gait < Motion
                     error('Need XCoM and XPBoS for XPMoS.');
                 end
                 u_max = calculateUMax(...
-                    obj.computeXPBoS(), xcom.x, xcom.z);
-                lines = [lines {obj.constructLine(u_max.x, xcom)} ...
-                    {obj.constructLine(u_max.z, xcom)}];
+                    xpbos, xcom.x, xcom.z);
+                lines = [lines {obj.constructLineTrajectory(u_max.x, xcom)} ...
+                    {obj.constructLineTrajectory(u_max.z, xcom)}];
                 labels = [labels 'XPMoS' 'XPMoS-z'];
             end
             

@@ -21,6 +21,17 @@ classdef MotionData < handle & dynamicprops
         
         function obj = MotionData(trial, leg_length, toe_length, grf_cutoff, ...
                 analyses, speed, direction)
+        % Construct MotionData object.
+        %
+        % Inputs: 
+        %   trial - OpenSimTrial object
+        %   leg_length - leg length of subject
+        %   toe_length - toe length of subject (MTP1 to front of foot)
+        %   grf_cutoff - grf cutoff used during data processing (~20-40N)
+        %   analyses - cell array of analyses to be loaded
+        %   speed - speed of relative motion
+        %   direction - direction of relative motion (typically 'x')
+        
             if nargin > 0
                 obj.Trial = trial;
                 obj.LegLength = leg_length;

@@ -33,7 +33,7 @@ classdef Gait < Motion
             result.z = multiplier.z.*abs(u_max.z.z - xcom.z);
             
             % If requested provide MoS in one direction only.
-            if nargin >= 5
+            if nargin >= 2
                 switch mode
                     case 'full'
                         result = result.(direction);
@@ -66,7 +66,7 @@ classdef Gait < Motion
             result.z = multiplier.z.*abs(u_max.z.z - com_pos.z);
             
             % If requested provide MoS in one direction only.
-            if nargin >= 3
+            if nargin >= 2
                 switch mode
                     case 'full'
                         result = result.(direction);
@@ -97,7 +97,7 @@ classdef Gait < Motion
             result.z = multiplier.z.*abs(u_max.z.z - xcom.z);
             
             % If requested provide MoS in one direction only.
-            if nargin >= 4
+            if nargin >= 2
                 switch mode
                     case 'full'
                         result = result.(direction);
@@ -175,11 +175,11 @@ classdef Gait < Motion
                 end
                 
                 for p = 1:n_polygons
-                    line_set = polygons{p}{frame};
+                    line_set = polygons{p}{frame}.LineSet;
                     % Draw each line.
-                    for l = 1:length(line_set)
+                    for l = 1:line_set.NLines
                         addpoints(animated_lines{p}, ...
-                            line_set{l}.z(:), line_set{l}.x(:));
+                            line_set.Lines(l).z(:), line_set.Lines(l).x(:));
                     end
                 end
                 
@@ -191,7 +191,7 @@ classdef Gait < Motion
                 
                 % Draw each line.
                 for l=1:n_lines
-                    plot(lines{l}{frame}.z, lines{l}{frame}.x, ...
+                    plot(lines{l}(frame).z, lines{l}(frame).x, ...
                         'LineWidth', 1.5, 'color', line_colors{l});
                 end
                 
@@ -451,7 +451,7 @@ classdef Gait < Motion
                 point_set = obj.computeDoubleSupportPoints(frame, markers);
                 
                 % Create the polygons for this frame.
-                polygons{frame} = obj.constructPolygon(point_set);
+                polygons{frame} = point_set.constructPolygon();
                 
             end
             
@@ -472,7 +472,7 @@ classdef Gait < Motion
                 point_set = obj.computeDoubleSupportPoints(frame);
                 
                 % Create the polygons for this frame.
-                polygons{frame} = obj.constructPolygon(point_set);
+                polygons{frame} = point_set.constructPolygon();
                 
             end
             
@@ -507,7 +507,7 @@ classdef Gait < Motion
                 end
                 
                 % Create the polygon for this frame.
-                polygons{frame} = obj.constructPolygon(point_set);
+               polygons{frame} = point_set.constructPolygon();
             end
             
         end
@@ -535,7 +535,7 @@ classdef Gait < Motion
             bottom_left.z = top_left.z;
             
             % Create point set.
-            point_set = {top_left, top_right, bottom_right, bottom_left};
+            point_set = PointSet([top_left top_right bottom_right bottom_left]);
             
         end
         
@@ -586,12 +586,13 @@ classdef Gait < Motion
             
             % Create point set.
             if lead_bottom.x >= off_bottom_right.x
-                point_set = {lead_top_left, lead_top_right, off_top, ...
-                    off_bottom_right, off_bottom_left, lead_bottom};
+                points = [lead_top_left, lead_top_right, off_top, ...
+                    off_bottom_right, off_bottom_left, lead_bottom];
             else
-                point_set = {lead_top_left, lead_top_right, off_top, ...
-                    off_bottom_right, lead_bottom_right, lead_bottom};
+                points = [lead_top_left, lead_top_right, off_top, ...
+                    off_bottom_right, lead_bottom_right, lead_bottom];
             end
+            point_set = PointSet(points);
             
         end
         
@@ -599,38 +600,26 @@ classdef Gait < Motion
     
     methods (Static, Access = private)
         
-        function line = constructLine(start, finish)
+        function line = constructLineTrajectory(start, finish)
+        % Construct a trajectory of lines from a trajectory of points. 
             
-            n_points = 100;
             n_frames = length(start.x);
             switch n_frames
                 case 1
-                    line.x = linspace(start.x, finish.x, n_points);
-                    line.z = linspace(start.z, finish.z, n_points);
+                    line = Line(start, finish);
                 otherwise
-                    line = cell(n_frames, 1);
+                    line(n_frames) = Line();
                     for frame = 1:n_frames
-                        line{frame}.x = linspace(start.x(frame), ...
-                            finish.x(frame), n_points);
-                        line{frame}.z = linspace(start.z(frame), ...
-                            finish.z(frame), n_points);
+                        orig.x = start.x(frame);
+                        orig.z = start.z(frame);
+                        dest.x = finish.x(frame);
+                        dest.z = finish.z(frame);
+                        line(frame) = Line(orig, dest);
                     end
             end
             
         end
         
-        function polygon = constructPolygon(point_set)
-            
-            n_points = length(point_set);
-            polygon = cell(n_points, 1);
-            for i=1:n_points
-                next = mod(i, n_points) + 1;
-                polygon{i} = ...
-                    GaitCycle.constructLine(point_set{i}, point_set{next});
-            end
-            
-        end
-    
     end
 
 end

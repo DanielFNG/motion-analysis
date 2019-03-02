@@ -1,17 +1,29 @@
-function [u_max, multiplier] = calculateUMax(polygon, x, z)
+function [u_max, multiplier] = calculateUMax(polygons, x, z)
 % Calculate the closest distance between a point and a polygon. 
 %
 % Input:
-%   polygon - a cell array, or single instance, of a struct, with fields
-%             corresponding to lines, each of which has x & z values.
-%             Example: polygon{2}.
+%   polygon - a Polygon, or cell array of polygons
+%   x - a value or array of values giving the x trajectory of a point
+%   z - a value of array of values giving the z trajectory of a point
+%
+% Note: if any of the above are cell/numeric arrays, all must be
+%       cell/numeric arrays as appropriate.
+%
+% Output: 
+%   u_max - a struct with fields 'x' and 'z' giving the distances in these
+%           directions between the point and polygon
+%   multiplier - +1 or -1 depending on whether or not the point is outside
+%                of the polygon
+%
+% Note: the lowest fields of u_max and multiplier will be arrays matching
+%       the length of the input data.
 
     n_frames = length(x);
     
     % Handle the case where we have a single polygon rather than a cell
     % array of polygons.
     if n_frames == 1
-        polygon = {polygon};
+        polygons = {polygons};
     end
 
     % Make initial assignments.
@@ -25,16 +37,12 @@ function [u_max, multiplier] = calculateUMax(polygon, x, z)
     for frame = 1:n_frames
         
         % Get the lines.
-        lines = polygon{frame};
-        n_lines = length(lines);
+        line_set = polygons{frame}.LineSet;
+        n_lines = polygons{frame}.LineSet.NLines;
         
         % Get the polygon.
-        polyx = [];
-        polyz = [];
-        for line = 1:n_lines
-            polyx = [polyx, lines{line}.x];  %#ok<*AGROW>
-            polyz = [polyz, lines{line}.z];
-        end
+        polyx = polygons{frame}.getXValues();
+        polyz = polygons{frame}.getZValues();
         
         % Check whether the point is inside the polygon.
         in = inpolygon(z(frame), x(frame), polyz, polyx);
@@ -48,7 +56,7 @@ function [u_max, multiplier] = calculateUMax(polygon, x, z)
             % Check each line.
             for line = 1:n_lines
                 
-                current_line = lines{line};
+                current_line = line_set.Lines(line);
                 z_range = current_line.z(2) - current_line.z(1);
                 if z_range ~= 0
                     m = (current_line.x(2) - current_line.x(1))/z_range;

@@ -522,20 +522,17 @@ classdef Gait < Motion
             small_toe_z = markers.getColumn([side obj.MTP5Marker 'Z']);
             
             % Create points.
-            top_left.x = big_toe_x(frame) + obj.MotionData.ToeLength;
-            top_left.z = big_toe_z(frame);
+            top_left = Point(big_toe_x(frame) + obj.MotionData.ToeLength, ...
+                big_toe_z(frame));
             
-            top_right.x = top_left.x;
-            top_right.z = small_toe_z(frame);
+            top_right = Point(top_left.x, small_toe_z(frame));
             
-            bottom_right.x = heel_x(frame);
-            bottom_right.z = top_right.z;
+            bottom_right = Point(heel_x(frame), top_right.z);
             
-            bottom_left.x = bottom_right.x;
-            bottom_left.z = top_left.z;
+            bottom_left = Point(bottom_right.x, top_left.z);
             
             % Create point set.
-            point_set = {top_left, top_right, bottom_right, bottom_left};
+            point_set = PointSet([top_left top_right bottom_right bottom_left]);
             
         end
         
@@ -563,35 +560,31 @@ classdef Gait < Motion
             off_small_toe_z = markers.getColumn([other_side obj.MTP5Marker 'Z']);
             
             % Create points.
-            lead_top_left.x = lead_big_toe_x(frame) + obj.MotionData.ToeLength;
-            lead_top_left.z = lead_small_toe_z(frame);
+            lead_top_left = Point(lead_big_toe_x(frame) + ...
+                obj.MotionData.ToeLength, lead_small_toe_z(frame));
             
-            lead_top_right.x = lead_top_left.x;
-            lead_top_right.z = lead_big_toe_z(frame);
+            lead_top_right = Point(lead_top_left.x, lead_big_toe_z(frame));
             
-            off_top.x = off_big_toe_x(frame) + obj.MotionData.ToeLength;
-            off_top.z = off_small_toe_z(frame);
+            off_top = Point(off_big_toe_x(frame) + obj.MotionData.ToeLength, ...
+                off_small_toe_z(frame));
             
-            off_bottom_right.x = off_heel_x(frame);
-            off_bottom_right.z = off_top.z;
+            off_bottom_right = Point(off_heel_x(frame), off_top.z);
             
-            off_bottom_left.x = off_bottom_right.x;
-            off_bottom_left.z = off_big_toe_z(frame);
+            off_bottom_left = Point(off_bottom_right.x, off_big_toe_z(frame));
             
-            lead_bottom.x = lead_heel_x(frame);
-            lead_bottom.z = lead_top_left.z;
+            lead_bottom = Point(lead_heel_x(frame), lead_top_left.z);
             
-            lead_bottom_right.x = lead_bottom.x;
-            lead_bottom_right.z = lead_top_right.z;
+            lead_bottom_right = Point(lead_bottom.x, lead_top_right.z);
             
             % Create point set.
             if lead_bottom.x >= off_bottom_right.x
-                point_set = {lead_top_left, lead_top_right, off_top, ...
-                    off_bottom_right, off_bottom_left, lead_bottom};
+                points = [lead_top_left, lead_top_right, off_top, ...
+                    off_bottom_right, off_bottom_left, lead_bottom];
             else
-                point_set = {lead_top_left, lead_top_right, off_top, ...
-                    off_bottom_right, lead_bottom_right, lead_bottom};
+                points = [lead_top_left, lead_top_right, off_top, ...
+                    off_bottom_right, lead_bottom_right, lead_bottom];
             end
+            point_set = PointSet(points);
             
         end
         

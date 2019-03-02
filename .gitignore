@@ -9,4 +9,4 @@
 *.trc
 *.fig
 *.png
-*.mat
+\test_data*

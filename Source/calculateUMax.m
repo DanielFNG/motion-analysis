@@ -1,6 +1,18 @@
 function [u_max, multiplier] = calculateUMax(polygon, x, z)
+% Calculate the closest distance between a point and a polygon. 
+%
+% Input:
+%   polygon - a cell array, or single instance, of a struct, with fields
+%             corresponding to lines, each of which has x & z values.
+%             Example: polygon{2}.
 
     n_frames = length(x);
+    
+    % Handle the case where we have a single polygon rather than a cell
+    % array of polygons.
+    if n_frames == 1
+        polygon = {polygon};
+    end
 
     % Make initial assignments.
     u_max.x.x = 1000*ones(n_frames, 1);

@@ -1,5 +1,6 @@
 classdef Line
-% Simple class for working with lines between Points in x/z space.
+% Simple class for working with lines between points in x/z space. A point is
+% simply a struct with an x and z field. 
    
     properties
         x
@@ -10,7 +11,7 @@ classdef Line
     methods
         
         function obj = Line(start, finish, n_points)
-        % Construct Line of n_points between start Point and finish Point.
+        % Construct Line of n_points between start point and finish point.
             
             if nargin > 0
                 if nargin == 3
@@ -26,16 +27,18 @@ classdef Line
         end
         
         function start = getStartPoint(obj)
-        % Returns the start Point of the line.
+        % Returns the start point of the line.
            
-            start = Point(obj.x(1), obj.z(1));
+            start.x = obj.x(1);
+            start.z = obj.z(1);
             
         end
         
         function finish = getFinishPoint(obj)
-        % Returns the end Point of the line.
+        % Returns the end point of the line.
             
-            finish = Point(obj.x(end), obj.z(end));
+            finish.x = obj.x(end);
+            finish.z = obj.z(end);
             
         end
         
@@ -44,9 +47,9 @@ classdef Line
     methods (Static)
        
         function verifyPoints(point1, point2)
-        % Small check - Points must not be equal to create a Line.
+        % Small check - points must be not equal to create a Line.
             
-            if point1 == point2
+            if point1.x == point2.x && point1.z == point2.z
                 error('Can''t draw a line between two equal Points.');
             end
             

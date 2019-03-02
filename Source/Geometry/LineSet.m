@@ -21,14 +21,14 @@ classdef LineSet
         end
         
         function [start, finish] = getEndPoints(obj)
-        % Return the start and finish Points for all Line objects in the 
+        % Return the start and finish points for all Line objects in the 
         % LineSet as two PointSet objects.
             
-            % Initialise Point arrays.
-            start(obj.NLines) = Point();
+            % Initialise an empty struct array for the points.
+            start = struct('x', {}, 'z', {});
             finish = start;
-            
-            % Store the start and end Points for each line.
+        
+            % Store the start and end points for each line.
             for i=1:obj.NLines
                 start(i) = obj.Lines(i).getStartPoint();
                 finish(i) = obj.Lines(i).getFinishPoint();

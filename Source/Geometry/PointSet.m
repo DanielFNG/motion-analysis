@@ -1,5 +1,6 @@
 classdef PointSet
-% Class for storing & working with sets of points in x/z space. 
+% Class for storing & working with sets of points in x/z space. A point is
+% simply a struct with an x and z field. 
     
     properties
         Points
@@ -9,7 +10,7 @@ classdef PointSet
     methods
         
         function obj = PointSet(points)
-        % Construct a PointSet from an array of Point objects.    
+        % Construct a PointSet from an array of points.    
             
             if nargin > 0
                 obj.Points = points;

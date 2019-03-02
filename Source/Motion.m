@@ -14,6 +14,8 @@ classdef Motion < handle
     methods
         
         function obj = Motion(motion_data)
+        % Construct Motion from MotionData object. 
+        
             if nargin > 0
                 obj.MotionData = motion_data;
             end

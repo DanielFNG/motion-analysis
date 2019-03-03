@@ -395,18 +395,6 @@ classdef Gait < Motion
                 
         end
         
-        function indices = isolateOffStancePhase(obj, foot)
-        % Get the indices corresponding to the stance phases of the off foot.
-        %
-        % Similar to isolateStancePhase but does not require that only one
-        % stance phase is detected. 
-        
-            vert = 'vy';
-            indices = find(obj.MotionData.GRF.Forces.getColumn([foot vert]) ...
-                > obj.MotionData.GRFCutoff);
-            
-        end
-        
         function marker_data = extrapolateMarkers(obj)
         % Create an extrapolated copy of the marker data.
             
@@ -495,7 +483,7 @@ classdef Gait < Motion
             
             % Get the frames at which we're in single & double support.
             lss_frames = obj.isolateStancePhase(lead);
-            oss_frames = obj.isolateOffStancePhase(off);
+            oss_frames = obj.isolateStancePhase(off);
             ds_frames = intersect(lss_frames, oss_frames);
             
             for frame = 1:n_frames

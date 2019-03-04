@@ -114,7 +114,7 @@ classdef Gait < Motion
             [points, polygons, lines, labels] = ...
                 obj.parseVisualiseArgs(varargin{:});
             
-            n_points = length(points);
+            n_ = length(points);
             n_lines = length(lines);
             n_polygons = length(polygons);
             
@@ -469,16 +469,16 @@ classdef Gait < Motion
                     midpoint = zeros(n_frames, 1);
                     for frame = 1:n_frames
                         points= obj.computeSingleSupportPoints(frame,side);
-                        p = points.getXValues();
-                        midpoint(frame) = p(4)+(p(1)-p(4))/2;
+                        p = poi
+                        midpoint(frame) = points.Points.x(4)+points.Points.x(1)/2;
                     end
-                    midpoint_local = midpoint-com_x;
+                    
                     
                     for marker = 1:length(markers)
                         marker_label = [side markers{marker} direction];
                         x = marker_data.getColumn(marker_label);
                         adjusted = extrapolateCoMPendulum(...
-                            x, com_x, midpoint, obj.MotionData.LegLength);
+                            x, com_x, obj.MotionData.LegLength);
                         marker_data.setColumn(marker_label, adjusted);
                     end
                 end

@@ -507,19 +507,19 @@ classdef Gait < Motion
             
             % Get required marker trajectories.
             markers = obj.MotionData.Markers.Trajectories;
-            big_toe_x = markers.getColumn([side obj.MTP1Marker 'X']);
-            heel_x = markers.getColumn([side obj.HeelMarker 'X']);
-            big_toe_z = markers.getColumn([side obj.MTP1Marker 'Z']);
-            small_toe_z = markers.getColumn([side obj.MTP5Marker 'Z']);
+            big_toe_x = markers.getValue(frame, [side obj.MTP1Marker 'X']);
+            heel_x = markers.getValue(frame, [side obj.HeelMarker 'X']);
+            big_toe_z = markers.getValue(frame, [side obj.MTP1Marker 'Z']);
+            small_toe_z = markers.getValue(frame, [side obj.MTP5Marker 'Z']);
             
             % Create points.
-            top_left.x = big_toe_x(frame) + obj.MotionData.ToeLength;
-            top_left.z = big_toe_z(frame);
+            top_left.x = big_toe_x + obj.MotionData.ToeLength;
+            top_left.z = big_toe_z;
             
             top_right.x = top_left.x;
-            top_right.z = small_toe_z(frame);
+            top_right.z = small_toe_z;
             
-            bottom_right.x = heel_x(frame);
+            bottom_right.x = heel_x;
             bottom_right.z = top_right.z;
             
             bottom_left.x = bottom_right.x;
@@ -541,35 +541,35 @@ classdef Gait < Motion
             [side, other_side] = obj.identifyFrontFoot(frame, markers);
             
             % Get required marker trajectories.
-            lead_big_toe_x = markers.getColumn([side obj.MTP1Marker 'X']);
-            lead_heel_x = markers.getColumn([side obj.HeelMarker 'X']);
+            lead_big_toe_x = markers.getValue(frame, [side obj.MTP1Marker 'X']);
+            lead_heel_x = markers.getValue(frame, [side obj.HeelMarker 'X']);
             
-            lead_big_toe_z = markers.getColumn([side obj.MTP1Marker 'Z']);
-            lead_small_toe_z = markers.getColumn([side obj.MTP5Marker 'Z']);
+            lead_big_toe_z = markers.getValue(frame, [side obj.MTP1Marker 'Z']);
+            lead_small_toe_z = markers.getValue(frame, [side obj.MTP5Marker 'Z']);
             
-            off_big_toe_x = markers.getColumn([other_side obj.MTP1Marker 'X']);
-            off_heel_x = markers.getColumn([other_side obj.HeelMarker 'X']);
+            off_big_toe_x = markers.getValue(frame, [other_side obj.MTP1Marker 'X']);
+            off_heel_x = markers.getValue(frame, [other_side obj.HeelMarker 'X']);
             
-            off_big_toe_z = markers.getColumn([other_side obj.MTP1Marker 'Z']);
-            off_small_toe_z = markers.getColumn([other_side obj.MTP5Marker 'Z']);
+            off_big_toe_z = markers.getValue(frame, [other_side obj.MTP1Marker 'Z']);
+            off_small_toe_z = markers.getValue(frame, [other_side obj.MTP5Marker 'Z']);
             
             % Create points.
-            lead_top_left.x = lead_big_toe_x(frame) + obj.MotionData.ToeLength;
-            lead_top_left.z = lead_small_toe_z(frame);
+            lead_top_left.x = lead_big_toe_x + obj.MotionData.ToeLength;
+            lead_top_left.z = lead_small_toe_z;
             
             lead_top_right.x = lead_top_left.x;
-            lead_top_right.z = lead_big_toe_z(frame);
+            lead_top_right.z = lead_big_toe_z;
             
-            off_top.x = off_big_toe_x(frame) + obj.MotionData.ToeLength;
-            off_top.z = off_small_toe_z(frame);
+            off_top.x = off_big_toe_x + obj.MotionData.ToeLength;
+            off_top.z = off_small_toe_z;
             
-            off_bottom_right.x = off_heel_x(frame);
+            off_bottom_right.x = off_heel_x;
             off_bottom_right.z = off_top.z;
             
             off_bottom_left.x = off_bottom_right.x;
-            off_bottom_left.z = off_big_toe_z(frame);
+            off_bottom_left.z = off_big_toe_z;
             
-            lead_bottom.x = lead_heel_x(frame);
+            lead_bottom.x = lead_heel_x;
             lead_bottom.z = lead_top_left.z;
             
             lead_bottom_right.x = lead_bottom.x;

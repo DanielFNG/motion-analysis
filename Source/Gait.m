@@ -365,8 +365,10 @@ classdef Gait < Motion
         
             % Isolate vertical force data for each foot.
             vert = 'vy';
-            right = obj.MotionData.GRF.Forces.getColumn([obj.GRFRightFoot vert]);
-            left = obj.MotionData.GRF.Forces.getColumn([obj.GRFLeftFoot vert]);
+            right = obj.MotionData.GRF.Forces.getColumn(...
+                [obj.GRFRightFoot vert]);
+            left = obj.MotionData.GRF.Forces.getColumn(...
+                [obj.GRFLeftFoot vert]);
             
             % The index at which each the vertical force drops off.
             right_zeros = find(right < obj.MotionData.GRFCutoff);
@@ -541,17 +543,25 @@ classdef Gait < Motion
             [side, other_side] = obj.identifyFrontFoot(frame, markers);
             
             % Get required marker trajectories.
-            lead_big_toe_x = markers.getValue(frame, [side obj.MTP1Marker 'X']);
-            lead_heel_x = markers.getValue(frame, [side obj.HeelMarker 'X']);
+            lead_big_toe_x = markers.getValue(...
+                frame, [side obj.MTP1Marker 'X']);
+            lead_heel_x = markers.getValue(...
+                frame, [side obj.HeelMarker 'X']);
             
-            lead_big_toe_z = markers.getValue(frame, [side obj.MTP1Marker 'Z']);
-            lead_small_toe_z = markers.getValue(frame, [side obj.MTP5Marker 'Z']);
+            lead_big_toe_z = markers.getValue(...
+                frame, [side obj.MTP1Marker 'Z']);
+            lead_small_toe_z = markers.getValue(...
+                frame, [side obj.MTP5Marker 'Z']);
             
-            off_big_toe_x = markers.getValue(frame, [other_side obj.MTP1Marker 'X']);
-            off_heel_x = markers.getValue(frame, [other_side obj.HeelMarker 'X']);
+            off_big_toe_x = markers.getValue(...
+                frame, [other_side obj.MTP1Marker 'X']);
+            off_heel_x = markers.getValue(...
+                frame, [other_side obj.HeelMarker 'X']);
             
-            off_big_toe_z = markers.getValue(frame, [other_side obj.MTP1Marker 'Z']);
-            off_small_toe_z = markers.getValue(frame, [other_side obj.MTP5Marker 'Z']);
+            off_big_toe_z = markers.getValue(...
+                frame, [other_side obj.MTP1Marker 'Z']);
+            off_small_toe_z = markers.getValue(...
+                frame, [other_side obj.MTP5Marker 'Z']);
             
             % Create points.
             lead_top_left.x = lead_big_toe_x + obj.MotionData.ToeLength;

@@ -1,14 +1,17 @@
 classdef GaitCycle < Gait
 
     methods
+        
+        function result = calculateTotalTime(obj)
+           
+            result = obj.MotionData.TimeRange(2) - obj.MotionData.TimeRange(1);
+            
+        end
     
         function result = calculateStepFrequency(obj)
             
-            % Analysis requirements.
-            obj.require('GRF');
-            
             % Frequency calculation.
-            result = 1/(obj.MotionData.GRF.Forces.getTotalTime());
+            result = 1/obj.calculateTotalTime();
             
         end
         

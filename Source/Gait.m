@@ -228,7 +228,7 @@ classdef Gait < Motion
         end
     end
     
-    methods (Access = private)
+    methods (Access = protected)
         
         function [p, v] = getCoMPositionAndVelocity(obj)
         % Provide simpler access to CoM position & velocity.

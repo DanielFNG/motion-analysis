@@ -66,10 +66,14 @@ classdef GaitCycle < Gait
             end
             
             % Optionally, return only one direction.
-            if nargin == 3
+            if nargin == 2
                 result = result.(direction);
             end
         end
+        
+    end
+    
+    methods (Access = protected)
         
         function indices = isolateStancePhase(obj, foot)
         % Get the indices corresponding to stance phase using GRF data.

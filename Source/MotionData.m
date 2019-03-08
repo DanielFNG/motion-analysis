@@ -246,6 +246,7 @@ classdef MotionData < handle & dynamicprops
                     initial_values = forces.getColumn(j);
                     adjusted_values = accountForMovingReferenceFrame(...
                         initial_values, time, speed);
+                    adjusted_values(abs(initial_values) < 1e-6) = 0;
                     forces.setColumn(j, adjusted_values);
                 end
             end

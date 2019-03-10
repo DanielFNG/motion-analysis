@@ -246,7 +246,11 @@ classdef MotionData < handle & dynamicprops
                     initial_values = forces.getColumn(j);
                     adjusted_values = accountForMovingReferenceFrame(...
                         initial_values, time, speed);
-                    adjusted_values(abs(initial_values) < 1e-6) = 0;
+                    % If CoP is equal to 0, don't adjust since in this case the 
+                    % CoP is not defined. The diff requirement ignores the
+                    % case of the CoP genuinely being equal to 0. 
+                    adjusted_values(abs(initial_values) < 1e-6 & ...
+                        diff(initial_values) < 1e-6) = 0;
                     forces.setColumn(j, adjusted_values);
                 end
             end

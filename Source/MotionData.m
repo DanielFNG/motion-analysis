@@ -40,6 +40,9 @@ classdef MotionData < handle & dynamicprops
                 obj.ModelMass = trial.getInputModelMass();
                 if nargin > 4 
                     obj.load(analyses);  % Markers loaded by default.
+                    if any(strcmpi(analyses, 'GRF'))
+                        obj.processCOPData();
+                    end
                 end
                 if nargin > 5
                     obj.accountForFixedSpeed(speed, direction);
@@ -246,11 +249,6 @@ classdef MotionData < handle & dynamicprops
                     initial_values = forces.getColumn(j);
                     adjusted_values = accountForMovingReferenceFrame(...
                         initial_values, time, speed);
-                    % If CoP is equal to 0, don't adjust since in this case the 
-                    % CoP is not defined. The diff requirement ignores the
-                    % case of the CoP genuinely being equal to 0. 
-                    adjusted_values(abs(initial_values) < 1e-6 & ...
-                        diff(initial_values) < 1e-6) = 0;
                     forces.setColumn(j, adjusted_values);
                 end
             end
@@ -260,6 +258,23 @@ classdef MotionData < handle & dynamicprops
                 if strcmpi(velocity.Labels{j}(end), direction)
                     initial_values = velocity.getColumn(j);
                     velocity.setColumn(j, initial_values + speed);
+                end
+            end
+            
+        end
+        
+        function processCOPData(obj)
+            
+            forces = obj.GRF.Forces;
+            
+            % CoP adjustment.
+            for j=1:forces.NCols
+                if strcmpi(forces.Labels{j}(end-1), 'p')
+                    values = forces.getColumn(j);
+                    f_label = [forces.Labels{j}(1:end-2) 'vy'];
+                    force = forces.getColumn(f_label);
+                    values(force < obj.GRFCutoff) = NaN;
+                    forces.setColumn(j, values);
                 end
             end
             

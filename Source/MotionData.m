@@ -19,8 +19,8 @@ classdef MotionData < handle & dynamicprops
         
     methods
         
-        function obj = MotionData(trial, leg_length, toe_length, grf_cutoff, ...
-                analyses, speed, direction)
+        function obj = MotionData(trial, leg_length, toe_length, analyses, ...
+                grf_cutoff)
         % Construct MotionData object.
         %
         % Inputs: 
@@ -29,8 +29,6 @@ classdef MotionData < handle & dynamicprops
         %   toe_length - toe length of subject (MTP1 to front of foot)
         %   grf_cutoff - grf cutoff used during data processing (~20-40N)
         %   analyses - cell array of analyses to be loaded
-        %   speed - speed of relative motion
-        %   direction - direction of relative motion (typically 'x')
         
             if nargin > 0
                 obj.Trial = trial;
@@ -43,11 +41,6 @@ classdef MotionData < handle & dynamicprops
                     if any(strcmpi(analyses, 'GRF'))
                         obj.processCOPData();
                     end
-                end
-                if nargin > 5
-                    obj.accountForFixedSpeed(speed, direction);
-                    obj.MotionSpeed = speed;
-                    obj.MotionDirection = direction;
                 end
             end
         end
@@ -204,61 +197,6 @@ classdef MotionData < handle & dynamicprops
                     (obj.TimeRange(1) < latest_start ||  ...
                     obj.TimeRange(2) > earliest_finish)
                 obj.splineData(latest_start, earliest_finish);
-            end
-            
-        end
-        
-        function accountForFixedSpeed(obj, speed, direction)
-            
-            % Different behaviour depending on loaded status.
-            positions = {};
-            if any(strcmp(obj.LoadedAnalyses, 'Markers'))
-                positions{end + 1} = obj.Markers.Trajectories;
-            end
-            
-            if any(strcmp(obj.LoadedAnalyses, 'BK'))
-                positions{end + 1} = obj.BK.Positions;
-                velocity = obj.BK.Velocities;
-            else
-                velocity.NCols = 0;
-            end
-            
-            if any(strcmp(obj.LoadedAnalyses, 'GRF'))
-                forces = obj.GRF.Forces;
-            else
-                forces.NCols = 0;
-            end
-            
-            % Cartesian position adjustment.
-            for i=1:length(positions)
-                time = positions{i}.getTotalTime();
-                for j=1:positions{i}.NCols
-                    if strcmpi(positions{i}.Labels{j}(end), direction)
-                        initial_values = positions{i}.getColumn(j);
-                        adjusted_values = accountForMovingReferenceFrame(...
-                            initial_values, time, speed);
-                        positions{i}.setColumn(j, adjusted_values);
-                    end
-                end
-            end
-            
-            % CoP adjustment.
-            for j=1:forces.NCols
-                if strcmpi(forces.Labels{j}(end-1:end), ['p' direction])
-                    time = forces.getTotalTime();
-                    initial_values = forces.getColumn(j);
-                    adjusted_values = accountForMovingReferenceFrame(...
-                        initial_values, time, speed);
-                    forces.setColumn(j, adjusted_values);
-                end
-            end
-            
-            % BK velocity adjustment.
-            for j=1:velocity.NCols
-                if strcmpi(velocity.Labels{j}(end), direction)
-                    initial_values = velocity.getColumn(j);
-                    velocity.setColumn(j, initial_values + speed);
-                end
             end
             
         end

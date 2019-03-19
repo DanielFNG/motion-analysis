@@ -435,7 +435,7 @@ classdef Gait < Motion
             n_frames = obj.MotionData.Markers.Trajectories.NFrames;
             polygons = cell(n_frames, 1);
             
-            % Create some extrapolated markers.
+            % Create the extrapolated markers.
             markers = obj.extrapolateMarkers();
             
             for frame = 1:n_frames

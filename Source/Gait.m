@@ -1,7 +1,7 @@
 classdef Gait < Motion
 % Class for using OpenSim analysis data to perform calculations.
 
-    properties (Access = private)
+    properties (Access = protected)
         GRFRightFoot = 'ground_force1_' 
         GRFLeftFoot = 'ground_force2_'
         MTP1Marker = '_MTP1_'

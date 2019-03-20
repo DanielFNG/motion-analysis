@@ -10,3 +10,4 @@
 *.fig
 *.png
 \test_data*
+*.mat

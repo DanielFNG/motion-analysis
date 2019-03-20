@@ -362,20 +362,13 @@ classdef Gait < Motion
         
         function [foot, side, other_foot, other_side] = ...
                 identifyLeadingFootGRF(obj)
-        
-            % Isolate vertical force data for each foot.
-            vert = 'vy';
-            right = obj.MotionData.GRF.Forces.getColumn(...
-                [obj.GRFRightFoot vert]);
-            left = obj.MotionData.GRF.Forces.getColumn(...
-                [obj.GRFLeftFoot vert]);
             
-            % The index at which each the vertical force drops off.
-            right_zeros = find(right < obj.MotionData.GRFCutoff);
-            left_zeros = find(left < obj.MotionData.GRFCutoff);
+            % Isolate forward position of each foot.
+            pos = ['p' lower(obj.Forward)];
+            right = obj.MotionData.GRF.Forces.getColumn([obj.GRFRightFoot pos]);
+            left = obj.MotionData.GRF.Forces.getColumn([obj.GRFLeftFoot pos]);
             
-            % Check which peaks sooner. 
-            if right_zeros(1) > left_zeros(1)
+            if right(1) > left(1)
                 foot = obj.GRFRightFoot;
                 other_foot = obj.GRFLeftFoot;
                 side = 'R';
@@ -386,6 +379,30 @@ classdef Gait < Motion
                 side = 'L';
                 other_side = 'R';
             end
+        
+%             % Isolate vertical force data for each foot.
+%             vert = 'vy';
+%             right = obj.MotionData.GRF.Forces.getColumn(...
+%                 [obj.GRFRightFoot vert]);
+%             left = obj.MotionData.GRF.Forces.getColumn(...
+%                 [obj.GRFLeftFoot vert]);
+%             
+%             % The index at which each the vertical force drops off.
+%             right_zeros = find(right < obj.MotionData.GRFCutoff);
+%             left_zeros = find(left < obj.MotionData.GRFCutoff);
+%             
+%             % Check which peaks sooner. 
+%             if right_zeros(1) > left_zeros(1)
+%                 foot = obj.GRFRightFoot;
+%                 other_foot = obj.GRFLeftFoot;
+%                 side = 'R';
+%                 other_side = 'L';
+%             else
+%                 foot = obj.GRFLeftFoot;
+%                 other_foot = obj.GRFRightFoot;
+%                 side = 'L';
+%                 other_side = 'R';
+%             end
         end
         
         function indices = isolateStancePhase(obj, foot)

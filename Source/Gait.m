@@ -51,7 +51,7 @@ classdef Gait < Motion
             % Analysis requirements.
             obj.require({'GRF', 'IK', 'BK'});
             
-            % Compute CoM position & velocity.
+            % Compute position & velocity.
             com_pos = obj.getCoMPositionAndVelocity();
             
             % Compute the BoS map.
@@ -298,12 +298,6 @@ classdef Gait < Motion
                 labels = [labels 'XCoM'];
             end
                      
-            if any(strcmp('PPBoS', varargin))
-                ppbos = obj.computePPBoS();
-                polygons= [polygons {ppbos}];
-                labels = [labels 'PPBoS'];
-            end
-
             if any(strcmp('MoS', varargin))
                 if ~any(strcmp(labels, 'XCoM')) || ~any(strcmp(labels, 'BoS'))
                     error('Need XCoM and BoS for MoS.');
@@ -335,6 +329,9 @@ classdef Gait < Motion
                 labels = [labels 'XPMoS' 'XPMoS-z'];
             end
             
+            if any(strcmp('Step', varargin))
+                obj.footstepPlot()
+            end
         end
         
         function [side, other_side] = identifyFrontFoot(obj, frame, markers)
@@ -442,49 +439,110 @@ classdef Gait < Motion
             
         end
 
-        function marker_data = extrapolateMarkersPendulum(obj)
+        
+        
+        function footstepPlot(obj,frames)
         % Create an extrapolated copy of the marker data.
             
+        
             % Copy marker data & computer marker velocities.
-            marker_data = copy(obj.MotionData.Markers.Trajectories);
-            velocity_data = marker_data.computeGradients();
+            marker_data = copy(obj.MotionData.Markers.Trajectories);            
             
-            % Select markers of interest.
-            markers = {obj.MTP1Marker, obj.MTP5Marker, obj.HeelMarker};
+            % Identify the leading foot and off foot.
+            [lead, ~, off, ~] = obj.identifyLeadingFootGRF();
             
-            % Extrapolate the position of each marker.
-            for side = 'LR'
-                for direction = 'X' %for direction = 'XZ'
-                                      
-                    com_label = [obj.CoM direction];
-                    com_x = obj.MotionData.BK.Positions.getColumn(com_label);
-                    com_v = obj.MotionData.BK.Velocities.getColumn(com_label);
-                                      
-                    ankle_label = [side obj.AnkleMarker direction];
-                    ankle_v = velocity_data.getColumn(ankle_label);
-                    ankle_x = marker_data.getColumn(ankle_label);
-                    
-                    
-                    n_frames= obj.MotionData.Markers.Trajectories.NFrames;
-                    midpoint = zeros(n_frames, 1);
-                    for frame = 1:n_frames
-                        points= obj.computeSingleSupportPoints(frame,side);
-                        p = points.getXValues();
-                        midpoint(frame) = p(4)+(p(1)-p(4))/2;
-                    end
-                    midpoint_local = midpoint-com_x;
-                    
-                    for marker = 1:length(markers)
-                        marker_label = [side markers{marker} direction];
-                        x = marker_data.getColumn(marker_label);
-                        adjusted = extrapolateCoMPendulum(...
-                            x, com_x, midpoint, obj.MotionData.LegLength);
-                        marker_data.setColumn(marker_label, adjusted);
-                    end
-                end
+            lss_frames = obj.isolateStancePhase(lead);
+            oss_frames = obj.isolateOffStancePhase(off);
+            ds_frames = intersect(lss_frames, oss_frames);
+            
+            % Identify the start frames, end frames and duration of each ds
+            % phase
+            ds_jumps = diff(ds_frames);
+            idx = find(ds_jumps>1);
+            
+            ds_end_frame = ds_frames([idx;length(ds_frames)]);
+            
+            if ds_jumps(1) == 1
+                idx = [0; idx];
             end
             
+            ds_start_frame = ds_frames(idx+1);
+
+            %Get CoM and calclate CP 
+            com_label = [obj.CoM 'X'];
+            com_p = obj.MotionData.BK.Positions.getColumn(com_label);
+            com_v = obj.MotionData.BK.Velocities.getColumn(com_label);
+            cp = com_p + com_v*sqrt(obj.MotionData.LegLength/9.81);
+            
+            % Find front foot at start of each DS phase
+            [ds_front_foot,...
+                ds_back_foot]= deal(blanks(length(ds_start_frame)));
+
+            for i = 1:length(ds_start_frame)
+                [ds_front_foot(i),ds_back_foot(i)] = obj.identifyFrontFoot(ds_start_frame(i), marker_data);               
+            end
+            
+            % set timeframe for plot 
+            if nargin<2
+                frames = 1:length(com_p);
+            end
+
+            front_swing = marker_data.getValue(frames,[ds_front_foot(1) obj.AnkleMarker 'X']);
+            front_big_toe = marker_data.getValue(frames,[ds_front_foot(1) obj.MTP1Marker 'X'])+obj.MotionData.ToeLength;
+            front_heel = marker_data.getValue(frames,[ds_front_foot(1) obj.HeelMarker 'X']);
+            
+            back_swing = marker_data.getValue(frames,[ds_back_foot(1) obj.AnkleMarker 'X']);
+            back_big_toe = marker_data.getValue(frames,[ds_back_foot(1) obj.MTP1Marker 'X'])+obj.MotionData.ToeLength;
+            back_heel = marker_data.getValue(frames,[ds_back_foot(1) obj.HeelMarker 'X']);
+            
+            % get walking distance to plot DS areas
+            y_min = min(min(front_heel),min(back_heel));
+            y_max = max(max(front_big_toe),max(back_big_toe));
+            
+            % Plot wavy foot thing 
+            
+            fig = figure('units', 'normalized', 'outerposition', [0 0 1 1]);
+            hold on
+            
+            %plot front foot + BoS
+            la = plot(front_swing,'b');
+            x = [1:length(frames),length(frames):-1:1];
+            front_foot = [front_big_toe;flipud(front_heel)]';
+            lf = fill(x,front_foot,'c');
+            lf.FaceAlpha = 0.2;
+            
+            % plot back foot + BoS
+            ta = plot(back_swing,'r');
+            back_foot = [back_big_toe;flipud(back_heel)]';
+            tf = fill(x,back_foot ,'m');
+            tf.FaceAlpha = 0.2;
+            
+            % plot  CoM
+            h = plot(com_p(frames),'g');
+            
+            % plot capture point
+            h1 = plot(cp(frames),'k');
+            
+            % Shade areas where the subject is in double support phase 
+            ds_fill = [];
+            ds_duration = ds_end_frame-ds_start_frame;
+            
+            % there are cleaner ways of doing this, but works for now
+            for i = 1:length(ds_start_frame)
+                s = ds_start_frame(i);
+                d = ds_duration(i);
+                x = [s:s+d,s+d:-1:s];
+                y = [ones(d+1,1)*y_min;ones(d+1,1)*y_max];
+                ds_fill = [ds_fill, fill(x,y,'y','FaceAlpha',0.2,'LineStyle','none','FaceColor',[0.8,0.8,0.8])];
+            end
+            
+            [lf_name,tf_name] = obj.identifyFrontFoot(1, marker_data); % get front foot for legend
+            hl = legend([la,lf,ta,tf,h,h1],sprintf ("%s Ankle",lf_name),sprintf ("%s BoS",lf_name),sprintf ("%s Ankle",tf_name),sprintf ("%s BoS",tf_name),'CoM','CP');
+            hl.Location = 'northwest';
+            
         end
+        
+        
         
         
         function polygons = computeXPBoS(obj)
@@ -532,38 +590,7 @@ classdef Gait < Motion
             
         end
 
-        function polygons = computePPBoS(obj)
-            
-            % Analysis requirements.
-            obj.require({'Markers', 'GRF'});
-            
-            markers = obj.extrapolateMarkersPendulum();
-            
-            % Initialise.
-            n_frames = obj.MotionData.Markers.Trajectories.NFrames;
-            polygons = cell(n_frames, 1);
-            
-            % Identify the leading foot and off foot.
-            [lead, side, off, off_side] = obj.identifyLeadingFootGRF();
-            
-            % Get the frames at which we're in single & double support.
-            lss_frames = obj.isolateStancePhase(lead);
-            oss_frames = obj.isolateOffStancePhase(off);
-            ds_frames = intersect(lss_frames, oss_frames);
-            
-            
-            for frame = 1:n_frames
-                
-                % Compute as if we were in double support.
-                point_set = obj.computeDoubleSupportPoints(frame, markers);
-                
-                % Create the polygons for this frame.
-                polygons{frame} = point_set.constructPolygon();
-                
-            end
-            
-        end
-        
+       
         function polygons = computeBoS(obj)
             
             % Analysis requirements.

@@ -228,23 +228,40 @@ classdef Gait < Motion
         end
         
         function visualiseFootstepPlot(obj, frames)
-        % Create an extrapolated copy of the marker data.
+        % Plot footstep dynamics.
         
-            % Copy marker data & computer marker velocities.
-            marker_data = obj.MotionData.Markers.Trajectories;            
+            % set timeframe for plot 
+            if nargin<2
+                frames = 1:obj.MotionData.Markers.Trajectories.NFrames;
+            end
             
             % Identify the leading foot and off foot.
-            [lead, ~, off, ~] = obj.identifyLeadingFootGRF();
+            [lead, side, off, off_side] = obj.identifyLeadingFootGRF();
+        
+            % Get relevant marker positions.
+            marker_data = obj.MotionData.Markers.Trajectories;   
+            front_swing = marker_data.getValue(frames, ...
+                [side obj.AnkleMarker obj.Forward]);
+            front_big_toe = marker_data.getValue(frames, ...
+                [side obj.MTP1Marker obj.Forward]) + obj.MotionData.ToeLength;
+            front_heel = marker_data.getValue(frames, ...
+                [side obj.HeelMarker obj.Forward]);
             
+            back_swing = marker_data.getValue(frames, ...
+                [off_side obj.AnkleMarker obj.Forward]);
+            back_big_toe = marker_data.getValue(frames, ...
+                [off_side obj.MTP1Marker obj.Forward]) + ...
+                obj.MotionData.ToeLength;
+            back_heel = marker_data.getValue(frames, ...
+                [off_side obj.HeelMarker obj.Forward]);
+            
+            % Identify the frames corresponding to double support.
             lss_frames = obj.isolateStancePhase(lead);
             oss_frames = obj.isolateStancePhase(off);
             ds_frames = intersect(lss_frames, oss_frames);
             
-            % Identify the start frames, end frames and duration of each ds
-            % phase
             ds_jumps = diff(ds_frames);
-            idx = find(ds_jumps>1);
-            
+            idx = find(ds_jumps > 1);
             ds_end_frame = ds_frames([idx;length(ds_frames)]);
             
             if ds_jumps(1) == 1
@@ -253,90 +270,66 @@ classdef Gait < Motion
             
             ds_start_frame = ds_frames(idx+1);
 
-            %Get CoM and calclate CP 
-            com_label = [obj.CoM 'X'];
+            % Get CoM and XCoM.
+            com_label = [obj.CoM obj.Forward];
             com_p = obj.MotionData.BK.Positions.getColumn(com_label);
             com_v = obj.MotionData.BK.Velocities.getColumn(com_label);
-            cp = com_p + com_v*sqrt(obj.MotionData.LegLength/9.81);
-            
-            % Find front foot at start of each DS phase
-            [ds_front_foot,...
-                ds_back_foot]= deal(blanks(length(ds_start_frame)));
-
-            for i = 1:length(ds_start_frame)
-                [ds_front_foot(i),ds_back_foot(i)] = ...
-                    obj.identifyFrontFoot(ds_start_frame(i), marker_data);               
-            end
-            
-            % set timeframe for plot 
-            if nargin<2
-                frames = 1:length(com_p);
-            end
-
-            front_swing = marker_data.getValue(frames,[ds_front_foot(1) ...
-                obj.AnkleMarker 'X']);
-            front_big_toe = marker_data.getValue(frames,[ds_front_foot(1) ...
-                obj.MTP1Marker 'X'])+obj.MotionData.ToeLength;
-            front_heel = marker_data.getValue(frames,[ds_front_foot(1) ...
-                obj.HeelMarker 'X']);
-            
-            back_swing = marker_data.getValue(frames,[ds_back_foot(1) ...
-                obj.AnkleMarker 'X']);
-            back_big_toe = marker_data.getValue(frames,[ds_back_foot(1) ...
-                obj.MTP1Marker 'X'])+obj.MotionData.ToeLength;
-            back_heel = marker_data.getValue(frames,[ds_back_foot(1) ...
-                obj.HeelMarker 'X']);
+            xcom = ...
+                extrapolatePendulum(com_p, com_v, 0, obj.MotionData.LegLength);
             
             % get walking distance to plot DS areas
-            y_min = min(min(front_heel),min(back_heel));
-            y_max = max(max(front_big_toe),max(back_big_toe));
+            y_min = min(min(front_heel), min(back_heel));
+            y_max = max(max(front_big_toe), max(back_big_toe));
             
-            % Plot wavy foot thing 
-            
-            fig = figure('units', 'normalized', 'outerposition', [0 0 1 1]);
+            % Plot wavy foot thing
+            figure('units', 'normalized', 'outerposition', [0 0 1 1]);
             hold on
             
             %plot front foot + BoS
-            la = plot(front_swing,'b');
-            x = [1:length(frames),length(frames):-1:1];
-            front_foot = [front_big_toe;flipud(front_heel)]';
-            lf = fill(x,front_foot,'c');
+            timesteps = obj.MotionData.Markers.Trajectories.getColumn('time');
+            timesteps = timesteps(frames);
+            la = plot(timesteps, front_swing, 'b');
+            x = [timesteps; flipud(timesteps)]';
+            front_foot = [front_big_toe; flipud(front_heel)]';
+            lf = fill(x, front_foot, 'c');
             lf.FaceAlpha = 0.2;
             
             % plot back foot + BoS
-            ta = plot(back_swing,'r');
-            back_foot = [back_big_toe;flipud(back_heel)]';
-            tf = fill(x,back_foot ,'m');
+            ta = plot(timesteps, back_swing, 'r');
+            back_foot = [back_big_toe; flipud(back_heel)]';
+            tf = fill(x, back_foot, 'm');
             tf.FaceAlpha = 0.2;
             
             % plot  CoM
-            h = plot(com_p(frames),'g');
+            h = plot(timesteps, com_p(frames), 'g');
             
             % plot capture point
-            h1 = plot(cp(frames),'k');
+            h1 = plot(timesteps, xcom(frames), 'k');
             
             % Shade areas where the subject is in double support phase 
             ds_fill = [];
-            ds_duration = ds_end_frame-ds_start_frame;
+            ds_duration = ds_end_frame - ds_start_frame;
             
             % there are cleaner ways of doing this, but works for now
             for i = 1:length(ds_start_frame)
                 s = ds_start_frame(i);
                 d = ds_duration(i);
-                x = [s:s+d,s+d:-1:s];
+                x = [timesteps(s:s+d); timesteps(s+d:-1:s)];
                 y = [ones(d+1,1)*y_min;ones(d+1,1)*y_max];
                 ds_fill = [ds_fill, fill(x,y,'y','FaceAlpha',0.2,...
                     'LineStyle','none','FaceColor',[0.8,0.8,0.8])];
             end
             
             % Get front foot for legend
-            [lf_name,tf_name] = obj.identifyFrontFoot(1, marker_data);
             hl = legend([la,lf,ta,tf,h,h1],...
-                sprintf ("%s Ankle",lf_name),sprintf ("%s BoS",lf_name),...
-                sprintf ("%s Ankle",tf_name),sprintf ("%s BoS",tf_name),...
+                sprintf ("%s Ankle", side),sprintf ("%s BoS", side),...
+                sprintf ("%s Ankle", off_side),sprintf ("%s BoS", off_side),...
                 'CoM','CP');
             hl.Location = 'northwest';
             
+            % Adjust figure range.
+            ylim([y_min y_max]);
+            xlim([timesteps(1) timesteps(end)]);
         end
         
     end

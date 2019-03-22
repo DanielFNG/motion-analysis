@@ -231,7 +231,7 @@ classdef Gait < Motion
         % Create an extrapolated copy of the marker data.
         
             % Copy marker data & computer marker velocities.
-            marker_data = copy(obj.MotionData.Markers.Trajectories);            
+            marker_data = obj.MotionData.Markers.Trajectories;            
             
             % Identify the leading foot and off foot.
             [lead, ~, off, ~] = obj.identifyLeadingFootGRF();

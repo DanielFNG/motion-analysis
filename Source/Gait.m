@@ -51,7 +51,7 @@ classdef Gait < Motion
             % Analysis requirements.
             obj.require({'GRF', 'IK', 'BK'});
             
-            % Compute position & velocity.
+            % Compute CoM position.
             com_pos = obj.getCoMPositionAndVelocity();
             
             % Compute the BoS map.
@@ -297,7 +297,7 @@ classdef Gait < Motion
                 points = [points xcom];
                 labels = [labels 'XCoM'];
             end
-                     
+
             if any(strcmp('MoS', varargin))
                 if ~any(strcmp(labels, 'XCoM')) || ~any(strcmp(labels, 'BoS'))
                     error('Need XCoM and BoS for MoS.');
@@ -549,9 +549,6 @@ classdef Gait < Motion
             
         end
         
-        
-        
-        
         function polygons = computeXPBoS(obj)
             
             % Analysis requirements.
@@ -596,7 +593,6 @@ classdef Gait < Motion
             end
             
         end
-
        
         function polygons = computeBoS(obj)
             

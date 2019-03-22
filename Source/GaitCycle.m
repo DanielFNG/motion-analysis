@@ -1,14 +1,17 @@
 classdef GaitCycle < Gait
 
     methods
+        
+        function result = calculateTotalTime(obj)
+           
+            result = obj.MotionData.TimeRange(2) - obj.MotionData.TimeRange(1);
+            
+        end
     
         function result = calculateStepFrequency(obj)
             
-            % Analysis requirements.
-            obj.require('GRF');
-            
             % Frequency calculation.
-            result = 1/(obj.MotionData.GRF.Forces.getTotalTime());
+            result = 1/obj.calculateTotalTime();
             
         end
         
@@ -45,6 +48,28 @@ classdef GaitCycle < Gait
             result = peak2peak(torque)/obj.MotionData.ModelMass;
         end
         
+        function result = calculateCoMD(obj, direction)
+        % Calculate CoM displacement.
+        
+            % Analysis requirements.
+            obj.require('BK');
+            
+            % CoMD calculation.
+            directions = {'y', 'z'};
+            for i=1:length(directions)
+                label = directions{i};
+                com = obj.MotionData.BK.Positions.getColumn(...
+                    ['center_of_mass_' label]);
+                result.(directions{i}) = peak2peak(com);
+            end
+            
+            % Optionally, return only one direction.
+            if nargin == 2
+                result = result.(direction);
+            end
+        
+        end
+        
         function result = calculateCoPD(obj, direction)
         % Calculate CoP displacement at the leading foot. 
         
@@ -63,10 +88,14 @@ classdef GaitCycle < Gait
             end
             
             % Optionally, return only one direction.
-            if nargin == 3
+            if nargin == 2
                 result = result.(direction);
             end
         end
+        
+    end
+    
+    methods (Access = protected)
         
         function indices = isolateStancePhase(obj, foot)
         % Get the indices corresponding to stance phase using GRF data.

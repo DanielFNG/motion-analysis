@@ -57,6 +57,11 @@ classdef PointSet
         %
         % If provided, varargin is a single argument which controls the
         % number of points used to construct the lines between points.
+        
+            % Assert that we need at least 3 points.
+            if obj.NPoints < 3
+                error('Can''t create a polygon from less than 3 points.');
+            end
             
             % Initialise array of Line objects.
             lines(obj.NPoints) = Line();  

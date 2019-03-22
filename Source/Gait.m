@@ -1,7 +1,7 @@
 classdef Gait < Motion
 % Class for using OpenSim analysis data to perform calculations.
 
-    properties (Access = private)
+    properties (Access = protected)
         GRFRightFoot = 'ground_force1_' 
         GRFLeftFoot = 'ground_force2_'
         MTP1Marker = '_MTP1_'
@@ -228,7 +228,7 @@ classdef Gait < Motion
         end
     end
     
-    methods (Access = private)
+    methods (Access = protected)
         
         function [p, v] = getCoMPositionAndVelocity(obj)
         % Provide simpler access to CoM position & velocity.
@@ -365,18 +365,13 @@ classdef Gait < Motion
         
         function [foot, side, other_foot, other_side] = ...
                 identifyLeadingFootGRF(obj)
-        
-            % Isolate vertical force data for each foot.
-            vert = 'vy';
-            right = obj.MotionData.GRF.Forces.getColumn([obj.GRFRightFoot vert]);
-            left = obj.MotionData.GRF.Forces.getColumn([obj.GRFLeftFoot vert]);
             
-            % The index at which each the vertical force drops off.
-            right_zeros = find(right < obj.MotionData.GRFCutoff);
-            left_zeros = find(left < obj.MotionData.GRFCutoff);
+            % Isolate forward position of each foot.
+            pos = ['p' lower(obj.Forward)];
+            right = obj.MotionData.GRF.Forces.getColumn([obj.GRFRightFoot pos]);
+            left = obj.MotionData.GRF.Forces.getColumn([obj.GRFLeftFoot pos]);
             
-            % Check which peaks sooner. 
-            if right_zeros(1) > left_zeros(1)
+            if right(1) > left(1)
                 foot = obj.GRFRightFoot;
                 other_foot = obj.GRFLeftFoot;
                 side = 'R';
@@ -387,6 +382,30 @@ classdef Gait < Motion
                 side = 'L';
                 other_side = 'R';
             end
+        
+%             % Isolate vertical force data for each foot.
+%             vert = 'vy';
+%             right = obj.MotionData.GRF.Forces.getColumn(...
+%                 [obj.GRFRightFoot vert]);
+%             left = obj.MotionData.GRF.Forces.getColumn(...
+%                 [obj.GRFLeftFoot vert]);
+%             
+%             % The index at which each the vertical force drops off.
+%             right_zeros = find(right < obj.MotionData.GRFCutoff);
+%             left_zeros = find(left < obj.MotionData.GRFCutoff);
+%             
+%             % Check which peaks sooner. 
+%             if right_zeros(1) > left_zeros(1)
+%                 foot = obj.GRFRightFoot;
+%                 other_foot = obj.GRFLeftFoot;
+%                 side = 'R';
+%                 other_side = 'L';
+%             else
+%                 foot = obj.GRFLeftFoot;
+%                 other_foot = obj.GRFRightFoot;
+%                 side = 'L';
+%                 other_side = 'R';
+%             end
         end
         
         function indices = isolateStancePhase(obj, foot)
@@ -396,18 +415,6 @@ classdef Gait < Motion
             indices = find(obj.MotionData.GRF.Forces.getColumn([foot vert]) ...
                 > obj.MotionData.GRFCutoff);
                 
-        end
-        
-        function indices = isolateOffStancePhase(obj, foot)
-        % Get the indices corresponding to the stance phases of the off foot.
-        %
-        % Similar to isolateStancePhase but does not require that only one
-        % stance phase is detected. 
-        
-            vert = 'vy';
-            indices = find(obj.MotionData.GRF.Forces.getColumn([foot vert]) ...
-                > obj.MotionData.GRFCutoff);
-            
         end
         
         function marker_data = extrapolateMarkers(obj)
@@ -605,7 +612,7 @@ classdef Gait < Motion
             
             % Get the frames at which we're in single & double support.
             lss_frames = obj.isolateStancePhase(lead);
-            oss_frames = obj.isolateOffStancePhase(off);
+            oss_frames = obj.isolateStancePhase(off);
             ds_frames = intersect(lss_frames, oss_frames);
             
             for frame = 1:n_frames
@@ -629,19 +636,19 @@ classdef Gait < Motion
             
             % Get required marker trajectories.
             markers = obj.MotionData.Markers.Trajectories;
-            big_toe_x = markers.getColumn([side obj.MTP1Marker 'X']);
-            heel_x = markers.getColumn([side obj.HeelMarker 'X']);
-            big_toe_z = markers.getColumn([side obj.MTP1Marker 'Z']);
-            small_toe_z = markers.getColumn([side obj.MTP5Marker 'Z']);
+            big_toe_x = markers.getValue(frame, [side obj.MTP1Marker 'X']);
+            heel_x = markers.getValue(frame, [side obj.HeelMarker 'X']);
+            big_toe_z = markers.getValue(frame, [side obj.MTP1Marker 'Z']);
+            small_toe_z = markers.getValue(frame, [side obj.MTP5Marker 'Z']);
             
             % Create points.
-            top_left.x = big_toe_x(frame) + obj.MotionData.ToeLength;
-            top_left.z = big_toe_z(frame);
+            top_left.x = big_toe_x + obj.MotionData.ToeLength;
+            top_left.z = big_toe_z;
             
             top_right.x = top_left.x;
-            top_right.z = small_toe_z(frame);
+            top_right.z = small_toe_z;
             
-            bottom_right.x = heel_x(frame);
+            bottom_right.x = heel_x;
             bottom_right.z = top_right.z;
             
             bottom_left.x = bottom_right.x;
@@ -663,35 +670,43 @@ classdef Gait < Motion
             [side, other_side] = obj.identifyFrontFoot(frame, markers);
             
             % Get required marker trajectories.
-            lead_big_toe_x = markers.getColumn([side obj.MTP1Marker 'X']);
-            lead_heel_x = markers.getColumn([side obj.HeelMarker 'X']);
+            lead_big_toe_x = markers.getValue(...
+                frame, [side obj.MTP1Marker 'X']);
+            lead_heel_x = markers.getValue(...
+                frame, [side obj.HeelMarker 'X']);
             
-            lead_big_toe_z = markers.getColumn([side obj.MTP1Marker 'Z']);
-            lead_small_toe_z = markers.getColumn([side obj.MTP5Marker 'Z']);
+            lead_big_toe_z = markers.getValue(...
+                frame, [side obj.MTP1Marker 'Z']);
+            lead_small_toe_z = markers.getValue(...
+                frame, [side obj.MTP5Marker 'Z']);
             
-            off_big_toe_x = markers.getColumn([other_side obj.MTP1Marker 'X']);
-            off_heel_x = markers.getColumn([other_side obj.HeelMarker 'X']);
+            off_big_toe_x = markers.getValue(...
+                frame, [other_side obj.MTP1Marker 'X']);
+            off_heel_x = markers.getValue(...
+                frame, [other_side obj.HeelMarker 'X']);
             
-            off_big_toe_z = markers.getColumn([other_side obj.MTP1Marker 'Z']);
-            off_small_toe_z = markers.getColumn([other_side obj.MTP5Marker 'Z']);
+            off_big_toe_z = markers.getValue(...
+                frame, [other_side obj.MTP1Marker 'Z']);
+            off_small_toe_z = markers.getValue(...
+                frame, [other_side obj.MTP5Marker 'Z']);
             
             % Create points.
-            lead_top_left.x = lead_big_toe_x(frame) + obj.MotionData.ToeLength;
-            lead_top_left.z = lead_small_toe_z(frame);
+            lead_top_left.x = lead_big_toe_x + obj.MotionData.ToeLength;
+            lead_top_left.z = lead_small_toe_z;
             
             lead_top_right.x = lead_top_left.x;
-            lead_top_right.z = lead_big_toe_z(frame);
+            lead_top_right.z = lead_big_toe_z;
             
-            off_top.x = off_big_toe_x(frame) + obj.MotionData.ToeLength;
-            off_top.z = off_small_toe_z(frame);
+            off_top.x = off_big_toe_x + obj.MotionData.ToeLength;
+            off_top.z = off_small_toe_z;
             
-            off_bottom_right.x = off_heel_x(frame);
+            off_bottom_right.x = off_heel_x;
             off_bottom_right.z = off_top.z;
             
             off_bottom_left.x = off_bottom_right.x;
-            off_bottom_left.z = off_big_toe_z(frame);
+            off_bottom_left.z = off_big_toe_z;
             
-            lead_bottom.x = lead_heel_x(frame);
+            lead_bottom.x = lead_heel_x;
             lead_bottom.z = lead_top_left.z;
             
             lead_bottom_right.x = lead_bottom.x;

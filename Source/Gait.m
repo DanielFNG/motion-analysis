@@ -237,7 +237,7 @@ classdef Gait < Motion
             [lead, ~, off, ~] = obj.identifyLeadingFootGRF();
             
             lss_frames = obj.isolateStancePhase(lead);
-            oss_frames = obj.isolateOffStancePhase(off);
+            oss_frames = obj.isolateStancePhase(off);
             ds_frames = intersect(lss_frames, oss_frames);
             
             % Identify the start frames, end frames and duration of each ds

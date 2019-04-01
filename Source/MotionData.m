@@ -202,6 +202,8 @@ classdef MotionData < handle & dynamicprops
         end
         
         function processCOPData(obj)
+        % Converts 0 values of the CoP which correspond to the foot being
+        % in swing phase to NaNs. 
             
             forces = obj.GRF.Forces;
             

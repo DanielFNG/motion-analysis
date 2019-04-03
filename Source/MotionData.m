@@ -37,10 +37,11 @@ classdef MotionData < handle & dynamicprops
                 obj.GRFCutoff = grf_cutoff;
                 obj.ModelMass = trial.getInputModelMass();
                 if nargin > 4 
-                    obj.load(analyses);  % Markers loaded by default.
-                    if any(strcmpi(analyses, 'GRF'))
-                        obj.processCOPData();
-                    end
+                    %obj.load(analyses);  % Markers loaded by default.
+%                     if any(strcmpi(analyses, 'GRF'))
+%                         obj.processCOPData();
+%                     end
+                    obj.load(analyses);
                 end
             end
         end
@@ -65,6 +66,7 @@ classdef MotionData < handle & dynamicprops
                     
                     case 'GRF'
                         obj.(analysis).Forces = Data(obj.Trial.grfs_path);
+                        obj.processCOPData();
                     case 'Markers'
                         obj.(analysis).Trajectories = ...
                             Data(obj.Trial.input_coordinates);

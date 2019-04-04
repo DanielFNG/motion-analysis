@@ -8,8 +8,6 @@ classdef MotionData < handle & dynamicprops
         LegLength
         ToeLength
         GRFCutoff
-        MotionSpeed = 0
-        MotionDirection = 'N/A'
     end
     
     properties (Access = private)
@@ -37,10 +35,6 @@ classdef MotionData < handle & dynamicprops
                 obj.GRFCutoff = grf_cutoff;
                 obj.ModelMass = trial.getInputModelMass();
                 if nargin > 4 
-                    %obj.load(analyses);  % Markers loaded by default.
-%                     if any(strcmpi(analyses, 'GRF'))
-%                         obj.processCOPData();
-%                     end
                     obj.load(analyses);
                 end
             end
@@ -66,7 +60,6 @@ classdef MotionData < handle & dynamicprops
                     
                     case 'GRF'
                         obj.(analysis).Forces = Data(obj.Trial.grfs_path);
-                        obj.processCOPData();
                     case 'Markers'
                         obj.(analysis).Trajectories = ...
                             Data(obj.Trial.input_coordinates);
@@ -105,6 +98,12 @@ classdef MotionData < handle & dynamicprops
             
             % Update time range.
             obj.updateTimeRange();
+            
+            % Post processing of the CoP data. 
+            switch analysis 
+                case 'GRF'
+                    obj.processCOPData();
+            end
             
         end
         
@@ -148,9 +147,15 @@ classdef MotionData < handle & dynamicprops
             % Spline all the data.
             for i=1:length(obj.LoadedAnalyses)
                 analysis = obj.LoadedAnalyses{i};
+                switch analysis
+                    case 'GRF'
+                        method = 'linear';
+                    otherwise
+                        method = 'spline';
+                end
                 fields = fieldnames(obj.(analysis));
                 for j=1:length(fields)
-                    obj.(analysis).(fields{j}).spline(timesteps);
+                    obj.(analysis).(fields{j}).spline(timesteps, method);
                 end
             end
             

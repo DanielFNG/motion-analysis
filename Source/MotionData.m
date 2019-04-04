@@ -221,6 +221,10 @@ classdef MotionData < handle & dynamicprops
                     f_label = [forces.Labels{j}(1:end-2) 'vy'];
                     force = forces.getColumn(f_label);
                     values(force < obj.GRFCutoff) = NaN;
+                    index = find(isnan(values), 1, 'first');
+                    if values(index - 1) < values(index - 2)
+                        values(index - 1) = values(index - 2);
+                    end
                     forces.setColumn(j, values);
                 end
             end

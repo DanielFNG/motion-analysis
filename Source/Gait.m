@@ -298,6 +298,15 @@ classdef Gait < Motion
                 labels = [labels 'XCoM'];
             end
             
+            if any(strcmp('CoP', varargin))
+                right.x = obj.MotionData.GRF.Forces.getColumn('ground_force1_px');
+                right.z = obj.MotionData.GRF.Forces.getColumn('ground_force1_pz');
+                left.x = obj.MotionData.GRF.Forces.getColumn('ground_force2_px');
+                left.z = obj.MotionData.GRF.Forces.getColumn('ground_force2_pz');
+                points = [points right left];
+                labels = [labels 'CoP-R' 'CoP-L'];
+            end
+            
             if any(strcmp('MoS', varargin))
                 if ~any(strcmp(labels, 'XCoM')) || ~any(strcmp(labels, 'BoS'))
                     error('Need XCoM and BoS for MoS.');

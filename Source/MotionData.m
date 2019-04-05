@@ -222,6 +222,10 @@ classdef MotionData < handle & dynamicprops
                     force = forces.getColumn(f_label);
                     values(force < obj.GRFCutoff) = NaN;
                     index = find(isnan(values), 1, 'first');
+                    
+                    % The below accounts for the possible error whereby a
+                    % value of force just above the threshold has a wonky
+                    % CoP.
                     if values(index - 1) < values(index - 2)
                         values(index - 1) = values(index - 2);
                     end

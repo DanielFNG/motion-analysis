@@ -94,36 +94,5 @@ classdef GaitCycle < Gait
         end
         
     end
-    
-    methods (Access = protected)
-        
-        function indices = isolateStancePhase(obj, foot)
-        % Get the indices corresponding to stance phase using GRF data.
-        
-            vert = 'vy';
-            indices = find(obj.MotionData.GRF.Forces.getColumn([foot vert]) ...
-                > obj.MotionData.GRFCutoff);
-            if sum(diff(indices) ~= 1) > 0
-                error('Multiple stance phases detected.');
-            end
-            
-        end
-        
-        function indices = isolateOffStancePhase(obj, foot)
-        % Get the indices corresponding to the stance phases of the off foot.
-        %
-        % Similar to isolateStancePhase but does not require that only one
-        % stance phase is detected. 
-        
-            vert = 'vy';
-            indices = find(obj.MotionData.GRF.Forces.getColumn([foot vert]) ...
-                > obj.MotionData.GRFCutoff);
-            if sum(diff(indices) ~= 1) > 1
-                error('More than two off-stance phases detected.');
-            end
-            
-        end
-    
-    end
 
 end

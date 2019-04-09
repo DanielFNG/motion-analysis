@@ -8,8 +8,6 @@ classdef MotionData < handle & dynamicprops
         LegLength
         ToeLength
         GRFCutoff
-        MotionSpeed = 0
-        MotionDirection = 'N/A'
     end
     
     properties (Access = private)
@@ -19,8 +17,8 @@ classdef MotionData < handle & dynamicprops
         
     methods
         
-        function obj = MotionData(trial, leg_length, toe_length, grf_cutoff, ...
-                analyses, speed, direction)
+        function obj = MotionData(trial, leg_length, toe_length, analyses, ...
+                grf_cutoff)
         % Construct MotionData object.
         %
         % Inputs: 
@@ -29,8 +27,6 @@ classdef MotionData < handle & dynamicprops
         %   toe_length - toe length of subject (MTP1 to front of foot)
         %   grf_cutoff - grf cutoff used during data processing (~20-40N)
         %   analyses - cell array of analyses to be loaded
-        %   speed - speed of relative motion
-        %   direction - direction of relative motion (typically 'x')
         
             if nargin > 0
                 obj.Trial = trial;
@@ -39,15 +35,7 @@ classdef MotionData < handle & dynamicprops
                 obj.GRFCutoff = grf_cutoff;
                 obj.ModelMass = trial.getInputModelMass();
                 if nargin > 4 
-                    obj.load(analyses);  % Markers loaded by default.
-                    if any(strcmpi(analyses, 'GRF'))
-                        obj.processCOPData();
-                    end
-                end
-                if nargin > 5
-                    obj.accountForFixedSpeed(speed, direction);
-                    obj.MotionSpeed = speed;
-                    obj.MotionDirection = direction;
+                    obj.load(analyses);
                 end
             end
         end
@@ -111,6 +99,12 @@ classdef MotionData < handle & dynamicprops
             % Update time range.
             obj.updateTimeRange();
             
+            % Post processing of the CoP data. 
+            switch analysis 
+                case 'GRF'
+                    obj.processCOPData();
+            end
+            
         end
         
         function bool = isLoaded(obj, analysis)
@@ -153,9 +147,15 @@ classdef MotionData < handle & dynamicprops
             % Spline all the data.
             for i=1:length(obj.LoadedAnalyses)
                 analysis = obj.LoadedAnalyses{i};
+                switch analysis
+                    case 'GRF'
+                        method = 'linear';
+                    otherwise
+                        method = 'spline';
+                end
                 fields = fieldnames(obj.(analysis));
                 for j=1:length(fields)
-                    obj.(analysis).(fields{j}).spline(timesteps);
+                    obj.(analysis).(fields{j}).spline(timesteps, method);
                 end
             end
             
@@ -208,62 +208,9 @@ classdef MotionData < handle & dynamicprops
             
         end
         
-        function accountForFixedSpeed(obj, speed, direction)
-            
-            % Different behaviour depending on loaded status.
-            positions = {};
-            if any(strcmp(obj.LoadedAnalyses, 'Markers'))
-                positions{end + 1} = obj.Markers.Trajectories;
-            end
-            
-            if any(strcmp(obj.LoadedAnalyses, 'BK'))
-                positions{end + 1} = obj.BK.Positions;
-                velocity = obj.BK.Velocities;
-            else
-                velocity.NCols = 0;
-            end
-            
-            if any(strcmp(obj.LoadedAnalyses, 'GRF'))
-                forces = obj.GRF.Forces;
-            else
-                forces.NCols = 0;
-            end
-            
-            % Cartesian position adjustment.
-            for i=1:length(positions)
-                time = positions{i}.getTotalTime();
-                for j=1:positions{i}.NCols
-                    if strcmpi(positions{i}.Labels{j}(end), direction)
-                        initial_values = positions{i}.getColumn(j);
-                        adjusted_values = accountForMovingReferenceFrame(...
-                            initial_values, time, speed);
-                        positions{i}.setColumn(j, adjusted_values);
-                    end
-                end
-            end
-            
-            % CoP adjustment.
-            for j=1:forces.NCols
-                if strcmpi(forces.Labels{j}(end-1:end), ['p' direction])
-                    time = forces.getTotalTime();
-                    initial_values = forces.getColumn(j);
-                    adjusted_values = accountForMovingReferenceFrame(...
-                        initial_values, time, speed);
-                    forces.setColumn(j, adjusted_values);
-                end
-            end
-            
-            % BK velocity adjustment.
-            for j=1:velocity.NCols
-                if strcmpi(velocity.Labels{j}(end), direction)
-                    initial_values = velocity.getColumn(j);
-                    velocity.setColumn(j, initial_values + speed);
-                end
-            end
-            
-        end
-        
         function processCOPData(obj)
+        % Converts 0 values of the CoP which correspond to the foot being
+        % in swing phase to NaNs. 
             
             forces = obj.GRF.Forces;
             
@@ -274,6 +221,14 @@ classdef MotionData < handle & dynamicprops
                     f_label = [forces.Labels{j}(1:end-2) 'vy'];
                     force = forces.getColumn(f_label);
                     values(force < obj.GRFCutoff) = NaN;
+                    index = find(isnan(values), 1, 'first');
+                    
+                    % The below accounts for the possible error whereby a
+                    % value of force just above the threshold has a wonky
+                    % CoP.
+                    if values(index - 1) < values(index - 2)
+                        values(index - 1) = values(index - 2);
+                    end
                     forces.setColumn(j, values);
                 end
             end

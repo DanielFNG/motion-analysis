@@ -51,7 +51,7 @@ classdef Gait < Motion
             % Analysis requirements.
             obj.require({'GRF', 'IK', 'BK'});
             
-            % Compute CoM position & velocity.
+            % Compute CoM position.
             com_pos = obj.getCoMPositionAndVelocity();
             
             % Compute the BoS map.
@@ -226,6 +226,112 @@ classdef Gait < Motion
             end
             
         end
+        
+        function visualiseFootstepPlot(obj, frames)
+        % Plot footstep dynamics.
+        
+            % set timeframe for plot 
+            if nargin<2
+                frames = 1:obj.MotionData.Markers.Trajectories.NFrames;
+            end
+            
+            % Identify the leading foot and off foot.
+            [lead, side, off, off_side] = obj.identifyLeadingFootGRF();
+        
+            % Get relevant marker positions.
+            marker_data = obj.MotionData.Markers.Trajectories;   
+            front_swing = marker_data.getValue(frames, ...
+                [side obj.AnkleMarker obj.Forward]);
+            front_big_toe = marker_data.getValue(frames, ...
+                [side obj.MTP1Marker obj.Forward]) + obj.MotionData.ToeLength;
+            front_heel = marker_data.getValue(frames, ...
+                [side obj.HeelMarker obj.Forward]);
+            
+            back_swing = marker_data.getValue(frames, ...
+                [off_side obj.AnkleMarker obj.Forward]);
+            back_big_toe = marker_data.getValue(frames, ...
+                [off_side obj.MTP1Marker obj.Forward]) + ...
+                obj.MotionData.ToeLength;
+            back_heel = marker_data.getValue(frames, ...
+                [off_side obj.HeelMarker obj.Forward]);
+            
+            % Identify the frames corresponding to double support.
+            lss_frames = obj.isolateStancePhase(lead);
+            oss_frames = obj.isolateStancePhase(off);
+            ds_frames = intersect(lss_frames, oss_frames);
+            
+            ds_jumps = diff(ds_frames);
+            idx = find(ds_jumps > 1);
+            ds_end_frame = ds_frames([idx;length(ds_frames)]);
+            
+            if ds_jumps(1) == 1
+                idx = [0; idx];
+            end
+            
+            ds_start_frame = ds_frames(idx+1);
+
+            % Get CoM and XCoM.
+            com_label = [obj.CoM obj.Forward];
+            com_p = obj.MotionData.BK.Positions.getColumn(com_label);
+            com_v = obj.MotionData.BK.Velocities.getColumn(com_label);
+            xcom = ...
+                extrapolatePendulum(com_p, com_v, 0, obj.MotionData.LegLength);
+            
+            % get walking distance to plot DS areas
+            y_min = min(min(front_heel), min(back_heel));
+            y_max = max(max(front_big_toe), max(back_big_toe));
+            
+            % Plot wavy foot thing
+            figure('units', 'normalized', 'outerposition', [0 0 1 1]);
+            hold on
+            
+            %plot front foot + BoS
+            timesteps = obj.MotionData.Markers.Trajectories.getColumn('time');
+            timesteps = timesteps(frames);
+            la = plot(timesteps, front_swing, 'b');
+            x = [timesteps; flipud(timesteps)]';
+            front_foot = [front_big_toe; flipud(front_heel)]';
+            lf = fill(x, front_foot, 'c');
+            lf.FaceAlpha = 0.2;
+            
+            % plot back foot + BoS
+            ta = plot(timesteps, back_swing, 'r');
+            back_foot = [back_big_toe; flipud(back_heel)]';
+            tf = fill(x, back_foot, 'm');
+            tf.FaceAlpha = 0.2;
+            
+            % plot  CoM
+            h = plot(timesteps, com_p(frames), 'g');
+            
+            % plot capture point
+            h1 = plot(timesteps, xcom(frames), 'k');
+            
+            % Shade areas where the subject is in double support phase 
+            ds_fill = [];
+            ds_duration = ds_end_frame - ds_start_frame;
+            
+            % there are cleaner ways of doing this, but works for now
+            for i = 1:length(ds_start_frame)
+                s = ds_start_frame(i);
+                d = ds_duration(i);
+                x = [timesteps(s:s+d); timesteps(s+d:-1:s)];
+                y = [ones(d+1,1)*y_min;ones(d+1,1)*y_max];
+                ds_fill = [ds_fill, fill(x,y,'y','FaceAlpha',0.2,...
+                    'LineStyle','none','FaceColor',[0.8,0.8,0.8])];
+            end
+            
+            % Get front foot for legend
+            hl = legend([la,lf,ta,tf,h,h1],...
+                sprintf ("%s Ankle", side),sprintf ("%s BoS", side),...
+                sprintf ("%s Ankle", off_side),sprintf ("%s BoS", off_side),...
+                'CoM','CP');
+            hl.Location = 'northwest';
+            
+            % Adjust figure range.
+            ylim([y_min y_max]);
+            xlim([timesteps(1) timesteps(end)]);
+        end
+        
     end
     
     methods (Access = protected)
@@ -306,7 +412,7 @@ classdef Gait < Motion
                 points = [points right left];
                 labels = [labels 'CoP-R' 'CoP-L'];
             end
-            
+
             if any(strcmp('MoS', varargin))
                 if ~any(strcmp(labels, 'XCoM')) || ~any(strcmp(labels, 'BoS'))
                     error('Need XCoM and BoS for MoS.');
@@ -337,7 +443,6 @@ classdef Gait < Motion
                     {obj.constructLineTrajectory(u_max.z, xcom)}];
                 labels = [labels 'XPMoS' 'XPMoS-z'];
             end
-            
         end
         
         function [side, other_side] = identifyFrontFoot(obj, frame, markers)
@@ -496,7 +601,7 @@ classdef Gait < Motion
             end
             
         end
-        
+       
         function polygons = computeBoS(obj)
             
             % Analysis requirements.

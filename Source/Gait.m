@@ -519,12 +519,14 @@ classdef Gait < Motion
 %             end
         end
         
-        function indices = isolateStancePhase(obj, foot)
+        function [stance, swing]  = isolateStancePhase(obj, foot)
         % Get the indices corresponding to stance phase using GRF data.
         
             vert = 'vy';
-            indices = find(obj.MotionData.GRF.Forces.getColumn([foot vert]) ...
+            frames = 1:obj.MotionData.GRF.Forces.NFrames;
+            stance = find(obj.MotionData.GRF.Forces.getColumn([foot vert]) ...
                 > obj.MotionData.GRFCutoff);
+            swing = setdiff(frames, stance);
                 
         end
         

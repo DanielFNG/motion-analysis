@@ -100,9 +100,8 @@ classdef MotionData < handle & dynamicprops
             obj.updateTimeRange();
             
             % Post processing of the CoP data. 
-            switch analysis 
-                case 'GRF'
-                    obj.processCOPData();
+            if any(strcmp(analyses, 'GRF'))
+                obj.processCOPData();
             end
             
         end

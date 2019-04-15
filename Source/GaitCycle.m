@@ -93,6 +93,26 @@ classdef GaitCycle < Gait
             end
         end
         
+        function result = calculateFootInversion(obj)
+            
+            [foot, side] = obj.identifyLeadingFootGRF();
+            swing = ~obj.isolateStancePhase(foot);
+            subtalar = obj.MotionData.IK.Kinematics.getColumn(...
+                ['subtalar_angle_' side]);
+            result = mean(subtalar(swing));
+            
+        end
+        
+        function result = calculateFootDrop(obj)
+            
+            [foot, side] = obj.identifyLeadingFootGRF();
+            [~, swing] = obj.isolateStancePhase(foot);
+            ankle = ...
+                obj.MotionData.IK.Kinematics.getColumn(['ankle_angle_' side]);
+            result = mean(ankle(swing));
+            
+        end
+        
     end
 
 end

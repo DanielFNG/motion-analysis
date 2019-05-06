@@ -69,6 +69,16 @@ classdef Motion < handle
             result = peak2peak(trajectory);
         end
         
+        function result = calculatePeak(obj, joint)
+            
+            % Analysis requirements.
+            obj.require('IK');
+            
+            % Calculation.
+            trajectory = obj.MotionData.IK.Kinematics.getColumn(joint);
+            result = max(abs(trajectory));
+        end
+        
     end
     
     methods (Access = protected)

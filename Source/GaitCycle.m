@@ -2,6 +2,14 @@ classdef GaitCycle < Gait
 
     methods
         
+        function result = getJointTrajectory(obj, joint)
+            
+            [side, ~] = obj.identifyLeadingFootIK();
+            
+            result = obj.MotionData.IK.Kinematics.getColumn([joint '_' side]);
+            
+        end
+        
         function result = calculateTotalTime(obj)
            
             result = obj.MotionData.TimeRange(2) - obj.MotionData.TimeRange(1);

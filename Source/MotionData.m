@@ -225,9 +225,11 @@ classdef MotionData < handle & dynamicprops
                     % The below accounts for the possible error whereby a
                     % value of force just above the threshold has a wonky
                     % CoP.
-                    if values(index - 1) < values(index - 2)
-                        values(index - 1) = values(index - 2);
-                    end
+                    
+                    %% This is temporarily getting removed as it's bugging out. WHat if index is 1 or 2?
+%                     if values(index - 1) < values(index - 2)
+%                         values(index - 1) = values(index - 2);
+%                     end
                     forces.setColumn(j, values);
                 end
             end

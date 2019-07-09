@@ -104,7 +104,7 @@ classdef GaitCycle < Gait
         function result = calculateFootInversion(obj)
             
             [foot, side] = obj.identifyLeadingFootGRF();
-            swing = ~obj.isolateStancePhase(foot);
+            [~, swing] = obj.isolateStancePhase(foot);
             subtalar = obj.MotionData.IK.Kinematics.getColumn(...
                 ['subtalar_angle_' side]);
             result = mean(subtalar(swing));

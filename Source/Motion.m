@@ -83,8 +83,9 @@ classdef Motion < handle
     
     methods (Access = protected)
         
-        function require(obj, analyses)
-        % Throw an error if any input analyses haven't been loaded.
+        function bool = require(obj, analyses)
+        % Check if input analyses have been loaded. 
+        %   Either throws error or returns boolean value if requested. 
         
             if isa(analyses, 'char')
                 analyses = {analyses};
@@ -93,7 +94,12 @@ classdef Motion < handle
             for i=1:length(analyses)
                 analysis = analyses{i};
                 if ~obj.MotionData.isLoaded(analysis)
-                    error('Requires %s data loaded.', analysis);
+                    if nargout == 0
+                        error('Requires %s data loaded.', analysis);
+                    else
+                        bool = 0;
+                        return
+                    end
                 end
             end
         

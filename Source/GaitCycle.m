@@ -4,7 +4,7 @@ classdef GaitCycle < Gait
         
         function result = getJointTrajectory(obj, joint)
             
-            [side, ~] = obj.identifyLeadingFootIK();
+            [~, side, ~, ~] = obj.identifyStanceFoot();
             
             result = obj.MotionData.IK.Kinematics.getColumn([joint '_' side]);
             
@@ -28,8 +28,8 @@ classdef GaitCycle < Gait
             % Analysis requirements.
             obj.require('IK');
             
-            % Identify the leading foot using IK.
-            [side, other_side] = obj.identifyLeadingFootIK();
+            % Identify the stance foot.
+            [~, side, ~, other_side] = obj.identifyStanceFoot();
             
             % Construct labels.
             first = [side obj.HeelMarker obj.Sideways];
@@ -86,7 +86,7 @@ classdef GaitCycle < Gait
             
             % CoPD calculation.  
             directions = {'x', 'z'};
-            foot = obj.identifyLeadingFootGRF();
+            [foot, ~, ~, ~] = obj.identifyStanceFoot();
             stance = obj.isolateStancePhase(foot);
             for i=1:length(directions)
                 label = directions{i};
@@ -103,7 +103,7 @@ classdef GaitCycle < Gait
         
         function result = calculateFootInversion(obj)
             
-            [foot, side] = obj.identifyLeadingFootGRF();
+            [foot, side, ~, ~] = obj.identifyStanceFoot();
             [~, swing] = obj.isolateStancePhase(foot);
             subtalar = obj.MotionData.IK.Kinematics.getColumn(...
                 ['subtalar_angle_' side]);
@@ -113,12 +113,68 @@ classdef GaitCycle < Gait
         
         function result = calculateFootDrop(obj)
             
-            [foot, side] = obj.identifyLeadingFootGRF();
+            [foot, side, ~, ~] = obj.identifyStanceFoot();
             [~, swing] = obj.isolateStancePhase(foot);
             ankle = ...
                 obj.MotionData.IK.Kinematics.getColumn(['ankle_angle_' side]);
             result = mean(ankle(swing));
             
+        end
+        
+    end
+    
+    methods (Access = private)
+        
+        function [foot, side, other_foot, other_side] = identifyStanceFoot(obj)
+            % Identifies the leading foot. 
+            %   Defined as the foot which is currently in stance. If both
+            %   are in stance, then the foot which is at the earlier point
+            %   of its stance phase.
+            
+            if obj.require({'GRF'})
+                [foot, side, other_foot, other_side] = ...
+                    identifyStanceFootGRF(obj);
+            elseif obj.require({'IK'})
+                [foot, side, other_foot, other_side] = ...
+                    identifyStanceFootIK(obj);
+            elseif obj.require({'Markers'})
+                [foot, side, other_foot, other_side] = ...
+                    identifyStanceFootMarkers(obj);
+            else
+                error('Require GRF, IK or Markers to find leading foot.');
+            end
+            
+        end
+        
+        function [foot, side, other_foot, other_side] = ...
+                identifyStanceFootMarkers(obj)
+            % Use marker data to identify the leading foot.
+            %   Leverages knowledge that gait data corresponds to one full
+            %   gait cycle.
+            
+            % Identify forward position of MTP1 marker.
+            right = markers.getColumn(['R' obj.MTP1Marker obj.Forward]);
+            left = markers.getColumn(['L' obj.MTP1Marker obj.Forward]);
+            
+            % Choose leading foot as that of the front foot.
+            [foot, side, other_foot, other_side] = ...
+                assignSideParams(right(1) > left(1));
+            
+        end
+        
+        function [foot, side, other_foot, other_side] = ...
+                identifyStanceFootIK(obj)
+            % Use IK to identify the leading foot.
+            %   Leverages knowledge that gait data corresponds to one full
+            %   gait cycle.
+            
+            % Isolate hip flexion angles.
+            right = obj.MotionData.IK.Kinematics.getColumn('hip_flexion_r');
+            left = obj.MotionData.IK.Kinematics.getColumn('hip_flexion_l');
+            
+            % Choose leading foot as that of the front leg.
+            [foot, side, other_foot, other_side] = ...
+                assignSideParams(right(1) > left(1));
         end
         
     end

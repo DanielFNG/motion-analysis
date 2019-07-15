@@ -236,7 +236,7 @@ classdef Gait < Motion
             end
             
             % Identify the leading foot and off foot.
-            [lead, side, off, off_side] = obj.identifyLeadingFootGRF();
+            [lead, side, off, off_side] = obj.identifyStanceFoot();
         
             % Get relevant marker positions.
             marker_data = obj.MotionData.Markers.Trajectories;   
@@ -445,78 +445,80 @@ classdef Gait < Motion
             end
         end
         
-        function [side, other_side] = identifyFrontFoot(obj, frame, markers)
+        function [foot, side, other_foot, other_side] = ...
+                identifyFrontFootMarkers(obj, frame, markers)
+            % Identifies the front foot at a specified frame using marker data.
+            %   Front foot is simply defined as the foot which is most
+            %   forward.
+            %
+            %   Marker data can be provided or the objects own data can be
+            %   used if available.
            
+            % Use Gait objects own markers unless some are provided.    
+            if nargin < 3
+                obj.require({'Markers'});
+                markers = obj.MotionData.Markers.Trajectories;
+            end
+            
+            % Isolate right & left MTP1 marker data.
             right = markers.getColumn(['R' obj.MTP1Marker obj.Forward]);
             left = markers.getColumn(['L' obj.MTP1Marker obj.Forward]);
             
-            if right(frame) > left(frame)
-                side = 'R';
-                other_side = 'L';
-            else
-                side = 'L';
-                other_side = 'R';
-            end
+            % Choose front foot as the one which is most forward. 
+            [foot, side, other_foot, other_side] = ...
+                assignSideParams(right(frame) > left(frame));
             
         end
         
-        function [side, other_side] = identifyLeadingFootIK(obj)
+        function [foot, side, other_foot, other_side] = assignSideParams(bool)
+            % Assigns foot, side, other_foot & other_side parameters.
+            %   Input should be a boolean value which is 1 if foot/side 
+            %   correspond to the right side & 0 if foot/side correspond to
+            %   the left side. 
             
-            right = obj.MotionData.IK.Kinematics.getColumn('hip_flexion_r');
-            left = obj.MotionData.IK.Kinematics.getColumn('hip_flexion_l');
-            
-            if right(1) > left(1)
+            if bool
                 side = 'R';
                 other_side = 'L';
+                foot = obj.GRFRightFoot;
+                other_foot = obj.GRFLeftFoot;
             else
                 side = 'L';
                 other_side = 'R';
+                foot = obj.GRFLeftFoot;
+                other_foot = obj.GRFRightFoot;
             end
+            
         end
         
         function [foot, side, other_foot, other_side] = ...
-                identifyLeadingFootGRF(obj)
+                identifyStanceFoot(obj)
+            % Identifies the stance foot. 
+            %   Defined as the foot which is currently in stance. If both
+            %   are in stance, then the foot which is at the earlier point
+            %   of its stance phase.
+            
+            if obj.require({'GRF'})
+                [foot, side, other_foot, other_side] = ...
+                    identifyStanceFootGRF(obj);
+            else
+                error('Require GRF to find leading foot for generic Gait.');
+            end
+            
+        end
+        
+        function [foot, side, other_foot, other_side] = ...
+                identifyStanceFootGRF(obj)
+            % Use GRF to identify the leading foot.
             
             % Isolate forward position of each foot.
             pos = ['p' lower(obj.Forward)];
             right = obj.MotionData.GRF.Forces.getColumn([obj.GRFRightFoot pos]);
             left = obj.MotionData.GRF.Forces.getColumn([obj.GRFLeftFoot pos]);
             
-            if right(1) > left(1)
-                foot = obj.GRFRightFoot;
-                other_foot = obj.GRFLeftFoot;
-                side = 'R';
-                other_side = 'L';
-            else
-                foot = obj.GRFLeftFoot;
-                other_foot = obj.GRFRightFoot;
-                side = 'L';
-                other_side = 'R';
-            end
-        
-%             % Isolate vertical force data for each foot.
-%             vert = 'vy';
-%             right = obj.MotionData.GRF.Forces.getColumn(...
-%                 [obj.GRFRightFoot vert]);
-%             left = obj.MotionData.GRF.Forces.getColumn(...
-%                 [obj.GRFLeftFoot vert]);
-%             
-%             % The index at which each the vertical force drops off.
-%             right_zeros = find(right < obj.MotionData.GRFCutoff);
-%             left_zeros = find(left < obj.MotionData.GRFCutoff);
-%             
-%             % Check which peaks sooner. 
-%             if right_zeros(1) > left_zeros(1)
-%                 foot = obj.GRFRightFoot;
-%                 other_foot = obj.GRFLeftFoot;
-%                 side = 'R';
-%                 other_side = 'L';
-%             else
-%                 foot = obj.GRFLeftFoot;
-%                 other_foot = obj.GRFRightFoot;
-%                 side = 'L';
-%                 other_side = 'R';
-%             end
+            % Choose leading foot as that which is most forward. 
+            [foot, side, other_foot, other_side] = ...
+                assignSideParams(right(1) > left(1));
+            
         end
         
         function [stance, swing]  = isolateStancePhase(obj, foot)
@@ -614,7 +616,7 @@ classdef Gait < Motion
             polygons = cell(n_frames, 1);
             
             % Identify the leading foot and off foot.
-            [lead, side, off, off_side] = obj.identifyLeadingFootGRF();
+            [lead, side, off, off_side] = obj.identifyStanceFoot();
             
             % Get the frames at which we're in single & double support.
             lss_frames = obj.isolateStancePhase(lead);
@@ -672,8 +674,8 @@ classdef Gait < Motion
                 markers = obj.MotionData.Markers.Trajectories;
             end
             
-            % Check which side leads.
-            [side, other_side] = obj.identifyFrontFoot(frame, markers);
+            % Check which side leads the double support phase. 
+            [side, other_side] = obj.identifyFrontFootMarkers(frame, markers);
             
             % Get required marker trajectories.
             lead_big_toe_x = markers.getValue(...

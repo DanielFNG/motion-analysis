@@ -123,7 +123,7 @@ classdef GaitCycle < Gait
         
     end
     
-    methods (Access = private)
+    methods (Access = protected)
         
         function [foot, side, other_foot, other_side] = identifyStanceFoot(obj)
             % Identifies the leading foot. 

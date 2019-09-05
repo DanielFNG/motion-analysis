@@ -466,11 +466,12 @@ classdef Gait < Motion
             
             % Choose front foot as the one which is most forward. 
             [foot, side, other_foot, other_side] = ...
-                assignSideParams(right(frame) > left(frame));
+                obj.assignSideParams(right(frame) > left(frame));
             
         end
         
-        function [foot, side, other_foot, other_side] = assignSideParams(bool)
+        function [foot, side, other_foot, other_side] = assignSideParams(...
+                obj, bool)
             % Assigns foot, side, other_foot & other_side parameters.
             %   Input should be a boolean value which is 1 if foot/side 
             %   correspond to the right side & 0 if foot/side correspond to
@@ -517,7 +518,7 @@ classdef Gait < Motion
             
             % Choose leading foot as that which is most forward. 
             [foot, side, other_foot, other_side] = ...
-                assignSideParams(right(1) > left(1));
+                obj.assignSideParams(right(1) > left(1));
             
         end
         
@@ -675,7 +676,8 @@ classdef Gait < Motion
             end
             
             % Check which side leads the double support phase. 
-            [side, other_side] = obj.identifyFrontFootMarkers(frame, markers);
+            [~, side, ~, other_side] = ...
+                obj.identifyFrontFootMarkers(frame, markers);
             
             % Get required marker trajectories.
             lead_big_toe_x = markers.getValue(...

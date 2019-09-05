@@ -44,6 +44,16 @@ classdef GaitCycle < Gait
         
         end
         
+        function result = calculateROM(obj, joint)
+           
+            obj.require('IK');
+            
+            kinematics = obj.getJointTrajectory(joint);
+            
+            result = peak2peak(kinematics);
+            
+        end
+        
         function result = calculateWNPPT(obj, joint)
         % Calculate weight-normalised peak-to-peak torque at given joint.
         

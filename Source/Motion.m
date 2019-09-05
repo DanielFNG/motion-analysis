@@ -100,6 +100,8 @@ classdef Motion < handle
                         bool = 0;
                         return
                     end
+                else
+                    bool = 1;
                 end
             end
         

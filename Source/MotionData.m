@@ -90,6 +90,9 @@ classdef MotionData < handle & dynamicprops
                         % Not yet implemented - need to see which files need to
                         % be read in. Will wait until more CMC-based analysis
                         % is required.
+                    case 'SO'
+                        obj.(analysis).Metabolics = Data([folder ...
+                            filesep 'SO_ProbeReporter_probes.sto']);
                 end
                 
                 % Updated loaded memory.

@@ -27,6 +27,22 @@ classdef Motion < handle
             
         end
         
+        function result = calculateMetabolicRate(obj)
+            
+            % Analysis requirements.
+            obj.require('SO');
+            
+            % Acquire data, timesteps & total time.
+            data = obj.MotionData.SO.Metabolics.getColumn(...
+                'metabolics_TOTAL');
+            time = obj.MotionData.SO.Metabolics.getTotalTime();
+            timesteps = obj.MotionData.SO.Metabolics.getTimesteps();
+            
+            % Metabolic rate calculation
+            result = trapz(timesteps, data)/time;
+            
+        end
+        
         function result = calculateTimeOfMotion(obj)
             
             if isempty(obj.MotionData.TimeRange)

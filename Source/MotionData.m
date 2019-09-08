@@ -93,6 +93,7 @@ classdef MotionData < handle & dynamicprops
                     case 'SO'
                         obj.(analysis).Metabolics = Data([folder ...
                             filesep 'SO_ProbeReporter_probes.sto']);
+                        obj.(analysis).Metabolics.filter4LP(6);
                 end
                 
                 % Updated loaded memory.

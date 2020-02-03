@@ -2,6 +2,52 @@ classdef GaitCycle < Gait
 
     methods
         
+        function result = calculateStanceRatio(obj)
+           
+            obj.require('GRF');
+            
+            total = obj.calculateTotalTime();
+            
+            [foot, ~, ~, ~] = obj.identifyStanceFoot();
+            
+            [stance, ~] = obj.isolateStancePhase(foot);
+            
+            timesteps = obj.MotionData.GRF.Forces.getTimesteps();
+            
+            stance_time = timesteps(stance(end)) - timesteps(stance(1));
+            
+            result = stance_time/total;
+            
+        end
+        
+        function result = calculatePushRatio(obj)
+            
+            obj.require('GRF');
+            
+            [foot, ~, ~, ~] = obj.identifyStanceFoot();
+            
+            [pks, locs] = ...
+                findpeaks(obj.MotionData.GRF.Forces.getColumn([foot 'vy']));
+            
+            % Identify the correct GRF1/2 peaks.
+            n_pks = length(pks);
+            if n_pks > 2
+                dist = zeros(length(pks), 1);
+                for i=1:length(pks)
+                    dist(i) = max(abs(locs(i) - locs));
+                end
+                max_dist = max(dist);
+                max_locs = locs(dist == max_dist);
+            elseif n_pks == 2
+                max_locs = locs;
+            else
+                error('Only one GRF peak detected.');
+            end
+            
+            result = pks(locs == max_locs(1))/pks(locs == max_locs(2));
+            
+        end
+        
         function result = getJointTrajectory(obj, joint)
             
             [~, side, ~, ~] = obj.identifyStanceFoot();

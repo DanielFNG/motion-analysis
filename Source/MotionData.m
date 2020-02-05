@@ -186,7 +186,9 @@ classdef MotionData < handle & dynamicprops
             end
             
             % Get the appropriate tolerance to use.
-            tol = max(timesteps);
+            tol = max(timesteps)*1.01;  % Add a small fraction to be robust to 
+                                        % rounding errors or floating point
+                                        % representation issues. 
             
             % Ensure that these are not too different.
             if length(start_times) > 1

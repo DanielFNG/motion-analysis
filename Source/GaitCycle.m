@@ -90,13 +90,17 @@ classdef GaitCycle < Gait
         
         end
         
-        function result = calculateROM(obj, joint)
+        function result = calculateROM(obj, joint, unit)
            
             obj.require('IK');
             
             kinematics = obj.getJointTrajectory(joint);
             
-            result = peak2peak(kinematics);
+            if nargin == 3 && strcmp(unit, 'rad')
+                result = deg2rad(peak2peak(kinematics));
+            else
+                result = peak2peak(kinematics);
+            end
             
         end
         

@@ -517,12 +517,8 @@ classdef Gait < Motion
             left = obj.MotionData.GRF.Forces.getColumn([obj.GRFLeftFoot pos]);
             
             % Choose leading foot as that which is most forward. 
-            %[foot, side, other_foot, other_side] = ...
-                %obj.assignSideParams(right(1) > left(1));
-                foot = obj.GRFRightFoot;
-                side = 'R';
-                other_foot = obj.GRFLeftFoot;
-                other_side = 'L';
+            [foot, side, other_foot, other_side] = ...
+                obj.assignSideParams(right(1) > left(1));
             
         end
         

@@ -56,6 +56,14 @@ classdef GaitCycle < Gait
             
         end
         
+        function result = getJointTorqueTrajectory(obj, joint)
+            
+            [~, side, ~, ~] = obj.identifyStanceFoot();
+            
+            result = obj.MotionData.ID.JointTorques.getColumn(...
+                [joint '_' side '_moment']);
+        end
+        
         function result = calculateTotalTime(obj)
            
             result = obj.MotionData.TimeRange(2) - obj.MotionData.TimeRange(1);
@@ -218,7 +226,7 @@ classdef GaitCycle < Gait
             
             % Choose leading foot as that of the front foot.
             [foot, side, other_foot, other_side] = ...
-                assignSideParams(right(1) > left(1));
+                obj.assignSideParams(right(1) > left(1));
             
         end
         
@@ -234,7 +242,7 @@ classdef GaitCycle < Gait
             
             % Choose leading foot as that of the front leg.
             [foot, side, other_foot, other_side] = ...
-                assignSideParams(right(1) > left(1));
+                obj.assignSideParams(right(1) > left(1));
         end
         
     end

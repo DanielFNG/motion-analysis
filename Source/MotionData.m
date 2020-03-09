@@ -7,7 +7,6 @@ classdef MotionData < handle & dynamicprops
         ModelMass
         LegLength
         ToeLength
-        GRFCutoff
     end
     
     properties (Access = private)
@@ -17,8 +16,7 @@ classdef MotionData < handle & dynamicprops
         
     methods
         
-        function obj = MotionData(trial, leg_length, toe_length, analyses, ...
-                grf_cutoff)
+        function obj = MotionData(trial, leg_length, toe_length, analyses)
         % Construct MotionData object.
         %
         % Inputs: 
@@ -32,7 +30,6 @@ classdef MotionData < handle & dynamicprops
                 obj.Trial = trial;
                 obj.LegLength = leg_length;
                 obj.ToeLength = toe_length;
-                obj.GRFCutoff = grf_cutoff;
                 obj.ModelMass = trial.getInputModelMass();
                 if nargin > 4 
                     obj.load(analyses);
@@ -225,7 +222,7 @@ classdef MotionData < handle & dynamicprops
                     values = forces.getColumn(j);
                     f_label = [forces.Labels{j}(1:end-2) 'vy'];
                     force = forces.getColumn(f_label);
-                    values(force < obj.GRFCutoff) = NaN;
+                    values(force == 0) = NaN;
                     forces.setColumn(j, values);
                 end
             end

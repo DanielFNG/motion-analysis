@@ -565,8 +565,7 @@ classdef Gait < Motion
         
             vert = 'vy';
             frames = 1:obj.MotionData.GRF.Forces.NFrames;
-            stance = find(obj.MotionData.GRF.Forces.getColumn([foot vert]) ...
-                > obj.MotionData.GRFCutoff);
+            stance = find(obj.MotionData.GRF.Forces.getColumn([foot vert]) > 0);
             swing = setdiff(frames, stance);
                 
         end

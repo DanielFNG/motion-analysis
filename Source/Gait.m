@@ -227,6 +227,44 @@ classdef Gait < Motion
             
         end
         
+        function visualiseCoP(obj)
+            
+            time = obj.MotionData.GRF.Forces.getTimesteps();
+           
+            for direction = {obj.Forward, obj.Sideways}
+                figure;
+                hold on;
+                switch direction{1}
+                    case obj.Forward
+                        const = obj.MotionData.ToeLength;
+                        variable_label = obj.HeelMarker;
+                    case obj.Sideways
+                        const = 0;
+                        variable_label = obj.MTP5Marker;
+                end
+                for side = {'R', 'L'}
+                    switch side{1}
+                        case 'R'
+                            grf_label = obj.GRFRightFoot;
+                            colour = 'b';
+                        case 'L' 
+                            grf_label = obj.GRFLeftFoot;
+                            colour = 'r';
+                    end
+                    cop = obj.MotionData.GRF.Forces.getColumn(...
+                        [grf_label 'p' direction{1}]);
+                    toe = obj.MotionData.Markers.Trajectories.getColumn(...
+                        [side{1} obj.MTP1Marker direction{1}]) + const;
+                    variable = obj.MotionData.Markers.Trajectories.getColumn(...
+                        [side{1} variable_label direction{1}]);
+                    extended = [time', fliplr(time')];
+                    region = [variable', fliplr(toe')];
+                    fill(extended, region, colour, 'LineStyle', 'none', 'FaceAlpha', 0.25);
+                    plot(time, cop, colour, 'LineWidth', 2);
+                end
+            end
+        end
+        
         function visualiseFootstepPlot(obj, frames)
         % Plot footstep dynamics.
         

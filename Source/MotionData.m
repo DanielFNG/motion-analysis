@@ -7,9 +7,10 @@ classdef MotionData < handle & dynamicprops
         ModelMass
         LegLength
         ToeLength
+        ToeWidth
     end
     
-    properties (Access = private)
+    properties %(Access = private)
         LoadedAnalyses
         Trial
     end
@@ -30,8 +31,11 @@ classdef MotionData < handle & dynamicprops
                 obj.Trial = trial;
                 obj.LegLength = leg_length;
                 obj.ToeLength = toe_length;
+                obj.ToeWidth = toe_length/3;  % Approximation of dist from 
+                                              % MPT1 marker to edge of foot
+                                              % in Z direction
                 obj.ModelMass = trial.getInputModelMass();
-                if nargin > 4 
+                if nargin > 3
                     obj.load(analyses);
                 end
             end

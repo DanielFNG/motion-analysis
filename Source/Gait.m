@@ -239,7 +239,7 @@ classdef Gait < Motion
                         const = obj.MotionData.ToeLength;
                         variable_label = obj.HeelMarker;
                     case obj.Sideways
-                        const = 0;
+                        const = obj.MotionData.ToeWidth;
                         variable_label = obj.MTP5Marker;
                 end
                 for side = {'R', 'L'}
@@ -253,8 +253,14 @@ classdef Gait < Motion
                     end
                     cop = obj.MotionData.GRF.Forces.getColumn(...
                         [grf_label 'p' direction{1}]);
-                    toe = obj.MotionData.Markers.Trajectories.getColumn(...
+                    if strcmp(direction{1}, obj.Sideways) && ...
+                            strcmp(side{1}, 'R')
+                        toe = obj.MotionData.Markers.Trajectories.getColumn(...
+                        [side{1} obj.MTP1Marker direction{1}]) - const;
+                    else
+                        toe = obj.MotionData.Markers.Trajectories.getColumn(...
                         [side{1} obj.MTP1Marker direction{1}]) + const;
+                    end
                     variable = obj.MotionData.Markers.Trajectories.getColumn(...
                         [side{1} variable_label direction{1}]);
                     extended = [time', fliplr(time')];

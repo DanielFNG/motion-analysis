@@ -229,7 +229,7 @@ classdef Gait < Motion
         
         function visualiseCoP(obj)
             
-            time = obj.MotionData.GRF.Forces.getTimesteps();
+            time = obj.MotionData.GRF.Forces.Timesteps;
            
             for direction = {obj.Forward, obj.Sideways}
                 figure;

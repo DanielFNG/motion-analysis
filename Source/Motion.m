@@ -36,7 +36,7 @@ classdef Motion < handle
             data = obj.MotionData.SO.Metabolics.getColumn(...
                 'metabolics_TOTAL');
             time = obj.MotionData.SO.Metabolics.getTotalTime();
-            timesteps = obj.MotionData.SO.Metabolics.getTimesteps();
+            timesteps = obj.MotionData.SO.Metabolics.Timesteps;
             
             % Metabolic rate calculation
             result = trapz(timesteps, data)/time;

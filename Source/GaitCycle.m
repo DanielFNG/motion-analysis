@@ -12,7 +12,7 @@ classdef GaitCycle < Gait
             
             [stance, ~] = obj.isolateStancePhase(foot);
             
-            timesteps = obj.MotionData.GRF.Forces.Timesteps;
+            timesteps = obj.MotionData.GRF.Forces.getTimesteps();
             
             stance_time = timesteps(stance(end)) - timesteps(stance(1));
             

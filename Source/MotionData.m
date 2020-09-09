@@ -1,4 +1,4 @@
-classdef SimData < handle & dynamicprops
+classdef MotionData < handle & dynamicprops
 % Class for loading & obtaining read access to OpenSim simulation data.
 
     properties (SetAccess = private)
@@ -68,8 +68,8 @@ classdef SimData < handle & dynamicprops
                     case 'IK'
                         obj.(analysis).Kinematics = ...
                             Data([folder filesep 'ik.mot']);
-                        obj.(analysis).MarkerErrors = Data(...
-                            [folder filesep 'default_ik_marker_errors.sto']);
+                        obj.(analysis).OutputMarkers = Data(...
+                            [folder filesep 'ik_model_marker_locations.sto']);
                     case 'RRA'
                         obj.(analysis).Kinematics = ...
                             Data([folder filesep 'RRA_Kinematics_q.sto']);

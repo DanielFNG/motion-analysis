@@ -35,8 +35,19 @@ classdef Motion < handle
             % Acquire data, timesteps & total time.
             data = obj.MotionData.SO.Metabolics.getColumn(...
                 'metabolics_TOTAL');
-            time = obj.MotionData.SO.Metabolics.getTotalTime();
             timesteps = obj.MotionData.SO.Metabolics.Timesteps;
+            
+            % THIS IS TEMPORARY DUE TO STATIC OPTIMISATION BEHAVIOUR
+            % Outlier removal
+            while any(isoutlier(data))
+                outliers = isoutlier(data);
+                data(outliers) = [];
+                timesteps(outliers) = [];
+            end
+            
+            % Compute total time - may not be the same as object due to
+            % outlier removal
+            time = timesteps(end) - timesteps(1);
             
             % Metabolic rate calculation
             result = trapz(timesteps, data)/time;

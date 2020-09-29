@@ -17,7 +17,7 @@ classdef MotionData < handle & dynamicprops
         
     methods
         
-        function obj = MotionData(trial, leg_length, toe_length, analyses)
+        function obj = SimData(trial, leg_length, toe_length, analyses)
         % Construct MotionData object.
         %
         % Inputs: 
@@ -34,7 +34,7 @@ classdef MotionData < handle & dynamicprops
                 obj.ToeWidth = toe_length/3;  % Approximation of dist from 
                                               % MPT1 marker to edge of foot
                                               % in Z direction
-                obj.ModelMass = trial.getInputModelMass();
+                evalc('obj.ModelMass = trial.getInputModelMass()'); % TEMPORARY TO SEE IF HIL IS FASTER!!
                 if nargin > 3
                     obj.load(analyses);
                 end

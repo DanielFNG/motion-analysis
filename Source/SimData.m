@@ -94,6 +94,8 @@ classdef SimData < handle & dynamicprops
                     case 'SO'
                         obj.(analysis).Metabolics = Data([folder ...
                             filesep 'SO_ProbeReporter_probes.sto']);
+                        obj.(analysis).Metabolics.removeOutliers(...
+                            'metabolics_TOTAL', 'movmedian', 5); % These params seem to work well for outlier detection followed by filtering
                         obj.(analysis).Metabolics.filter4LP(6);
                 end
                 

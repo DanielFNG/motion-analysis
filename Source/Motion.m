@@ -27,6 +27,26 @@ classdef Motion < handle
             
         end
         
+        function result = computeMarkerDistance(...
+                obj, marker, descriptor, comparison)
+            
+            % Analysis requirements
+            obj.require('Markers');
+            
+            % Get marker trajectory and compute mean height
+            trajectory = obj.MotionData.Markers.Trajectories.getColumn(...
+                [marker '_' upper(descriptor)]);
+            
+            if strcmpi(comparison, 'Ground')
+                result = mean(trajectory);
+            else
+                comparitor = obj.MotionData.Markers.Trajectories.getColumn(...
+                    [comparison '_' upper(descriptor)]);
+                result = mean(trajectory - comparitor);
+            end
+            
+        end
+        
         function result = calculateMetabolicRate(obj)
             
             % Analysis requirements.
@@ -104,6 +124,26 @@ classdef Motion < handle
             % Calculation.
             trajectory = obj.MotionData.IK.Kinematics.getColumn(joint);
             result = max(abs(trajectory));
+        end
+        
+        function result = calculateRMSMarkerError(obj, mode)
+            
+            % Analaysis requirements.
+            obj.require('IK');
+            mode = lower(mode);
+            
+            switch mode
+                case 'total'
+                    string = 'total_squared_error';
+                case 'rms'
+                    string = 'marker_error_RMS';
+                case 'max'
+                    string = 'marker_error_max';
+            end
+            
+            % Calculation
+            result = mean(obj.MotionData.IK.MarkerErrors.getColumn(string));
+            
         end
         
     end

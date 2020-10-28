@@ -2,6 +2,13 @@ classdef GaitCycle < Gait
 
     methods
         
+        function result = calculateMeanJointValue(obj, joint)
+           
+            trajectory = obj.MotionData.IK.Kinematics.getColumn([joint]);
+            result = mean(trajectory);
+            
+        end
+        
         function result = calculateStanceRatio(obj)
            
             obj.require('GRF');
@@ -28,6 +35,11 @@ classdef GaitCycle < Gait
             
             [pks, locs] = ...
                 findpeaks(obj.MotionData.GRF.Forces.getColumn([foot 'vy']));
+            
+            % Get rid of outliers
+            outliers = isoutlier(pks);
+            pks(outliers) = [];
+            locs(outliers) = [];
             
             % Identify the correct GRF1/2 peaks.
             n_pks = length(pks);
@@ -102,7 +114,7 @@ classdef GaitCycle < Gait
            
             obj.require('IK');
             
-            kinematics = obj.getJointTrajectory(joint);
+            kinematics = obj.MotionData.IK.Kinematics.getColumn(joint);
             
             if nargin == 3 && strcmp(unit, 'rad')
                 result = deg2rad(peak2peak(kinematics));
